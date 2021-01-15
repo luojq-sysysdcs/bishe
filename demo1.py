@@ -16,26 +16,29 @@ from torch import optim
 from Simple_model import *
 from utils import *
 from GenerateData import *
+import sys
+print(sys.platform)
 
-root = 'E:\\ljq\\data'
+if 'win' in sys.platform:
+    root = 'E:\ljq\data'
+else:
+    root = './data'
 train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True)
 test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False)
 
 
 if __name__ == "__main__":
     model = SM()
-    # model = ConvModel()
+    model = ConvModel()
     lr = 1e-2
     epoch = 10
     optimizer = optim.Adam(model.parameters(), lr=lr)
     loss_func = nn.CrossEntropyLoss()
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    epoch = 5
-    log_path = '.\\log'
-
-    # train(model, train_dataloader, loss_func, optimizer, device)
-    #
-    # evaluate(model, test_dataloader, loss_func, device)
+    device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
+    if 'win' in sys.platform:
+        log_path = '.\\log'
+    else:
+        log_path = './log'
 
     fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device)
 

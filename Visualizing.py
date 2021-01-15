@@ -14,18 +14,25 @@ from utils import load_model
 from matplotlib import pyplot as plt
 import os
 import numpy as np
+import sys
+print(sys.platform)
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
-root = 'E:\ljq\data'
+if 'win' in sys.platform:
+    root = 'E:\ljq\data'
+else:
+    root = './data'
 train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=1, shuffle=False)
 
 model = ConvModel()
-log_path = '.\\log'
+if 'win' in sys.platform:
+    log_path = '.\\log'
+else:
+    log_path = './log'
 load_model(model, log_path, 'conv_model')
 print(model)
 
-
-activation_layer = '3'
+activation_layer = '2'
 gradcam = GradCam(model, model.feature, [activation_layer])
 
 root = os.path.join(os.getcwd(), 'log', 'gradcam_results', 'mnist', 'activation_layer' + activation_layer)

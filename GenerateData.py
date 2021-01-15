@@ -10,7 +10,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 
 
-def generate_data(root, name, train=True, transform=None, batch_size=None, shuffle=False):
+def generate_data(root, name, train=True, transform=None, batch_size=None, shuffle=True):
     if name == 'MNIST':
         loader = datasets.MNIST
     else:
@@ -33,7 +33,8 @@ def generate_data(root, name, train=True, transform=None, batch_size=None, shuff
         print('num of batch', len(test_dataloader))
         return test_dataset, test_dataloader
 
-
+# class NumpyDataset(datasets):
+#     def __init__(self):
 
 
 

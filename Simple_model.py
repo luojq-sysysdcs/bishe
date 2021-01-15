@@ -39,10 +39,13 @@ class ConvModel(nn.Module):
 
         self.feature = nn.Sequential(
             nn.Conv2d(1, fm1, (3, 3), padding=1, stride=1),
+            nn.BatchNorm2d(fm1),
             nn.ReLU(inplace=True),
             nn.Conv2d(fm1, fm2, (3, 3), padding=1, stride=2),
+            nn.BatchNorm2d(fm2),
             nn.ReLU(inplace=True),
             nn.Conv2d(fm2, fm3, (3, 3), padding=1, stride=2),
+            nn.BatchNorm2d(fm3),
             nn.ReLU(inplace=True),
 #             nn.AdaptiveMaxPool2d((1, 1)),
             nn.AdaptiveAvgPool2d((1, 1)),
