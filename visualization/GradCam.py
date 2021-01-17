@@ -57,6 +57,8 @@ class ModelOutputs():
             elif "avgpool" in name.lower() or 'maxpool' in name.lower():
                 x = module(x)
                 x = x.view(x.size(0),-1)
+            elif 'linear' in name.lower():
+                x = module(x)
             else:
                 x = module(x)
 

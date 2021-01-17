@@ -23,7 +23,7 @@ if 'win' in sys.platform:
     root = 'E:\ljq\data'
 else:
     root = './data'
-train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True)
+train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True, shuffle=False)
 test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False)
 
 
@@ -40,8 +40,16 @@ if __name__ == "__main__":
     else:
         log_path = './log'
 
-    fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device)
+    # fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device)
 
+
+    model = ConvModel()
+    if 'win' in sys.platform:
+        log_path = '.\\log'
+    else:
+        log_path = './log'
+    load_model(model, log_path, 'conv_model')
+    print(torch.max(model(next(iter(train_dataloader))[0]), dim=1)[1])
     # save_model(model, log_path, 'conv_model')
 
 # imagenet = torchvision.datasets.ImageNet(root=root, download=True, split='train')

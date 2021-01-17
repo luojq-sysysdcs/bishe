@@ -23,6 +23,41 @@ if 'win' in sys.platform:
 else:
     root = './log/cw_image/numpy'
 
+class FeatureExtractor():
+    def __init__(self):
+        self.features = []
+        self.x = None
+        self.target_modules = None
+
+    def extractor(self, model):
+        for name, module in model._modules.items():
+            if 'linear' in name.lower():
+                self.x = self.x.view(self.x.shape[0], -1)
+            if name in self.target_modules:
+                self.features.append(self.x)
+                self.x = module(self.x)
+            else:
+                if len(module._modules) == 0:
+                    self.x = module(self.x)
+                else:
+                    self.extractor(module)
+
+    def __call__(self, model, x, target_modules):
+        self.features = []
+        self.model = model
+        self.x = x
+        self.target_modules =target_modules
+        self.extractor(model)
+        return self.features
+
+
+# def feature_extractor(model, x, target_modules):
+#     features = []
+#     for name, module in model._modules.items():
+#         if name.lower() in target_modules:
+#             features.append(x)
+#             x = module(x)
+
 def readNumpyFile(root, size=(28, 28)):
     files = []
     for path, _, fnames in os.walk(root):
@@ -52,8 +87,11 @@ else:
 load_model(model, log_path, 'conv_model')
 print(model)
 
-activation_layer = '3'
-gradcam = GradCam(model, model.feature, [activation_layer])
+fx = FeatureExtractor()
+features = fx(model, fake_images.unsqueeze(1), ['linear'])
+print(features[0][0])
+# activation_layer = '3'
+# gradcam = GradCam(model, model.feature, [activation_layer])
 #
 # root = os.path.join(os.getcwd(), 'log', 'gradcam_results', 'mnist', 'activation_layer' + activation_layer)
 # if not os.path.exists(root):
@@ -72,11 +110,11 @@ gradcam = GradCam(model, model.feature, [activation_layer])
 #     plt.savefig(os.path.join(root, str(idx), 'gradcam.jpg'))
 #     np.save(os.path.join(root, str(idx), 'gradcam.npy'), activation_map)
 
-for image in fake_images:
-    image = image.unsqueeze(0).unsqueeze(0)
-    activation_map_for_fake_images = gradcam(image)
-    plt.imshow(activation_map_for_fake_images, cmap='binary')
-    plt.show()
+# for image in fake_images:
+#     image = image.unsqueeze(0).unsqueeze(0)
+#     activation_map_for_fake_images = gradcam(image)
+#     plt.imshow(activation_map_for_fake_images, cmap='binary')
+#     plt.show()
 
 
 

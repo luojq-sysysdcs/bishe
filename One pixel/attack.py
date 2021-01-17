@@ -39,10 +39,10 @@ parser.add_argument('--pixels', default=1, type=int, help='The number of pixels 
 parser.add_argument('--maxiter', default=100, type=int, help='The maximum number of iteration in the DE algorithm.')
 parser.add_argument('--popsize', default=400, type=int, help='The number of adverisal examples in each iteration.')
 parser.add_argument('--samples', default=100, type=int, help='The number of image samples to attack.')
-parser.add_argument('--targeted', action='store_true', help='Set this switch to test for targeted attacks.')
+parser.add_argument('--targeted', default=False, help='Set this switch to test for targeted attacks.')
 parser.add_argument('--save', default='./results/results.pkl', help='Save location for the results with pickle.')
-parser.add_argument('--verbose', action='store_true', help='Print out additional information every iteration.')
-
+parser.add_argument('--verbose', default=False, help='Print out additional information every iteration.')
+parser.add_argument('--log', default=os.path.join(os.path.dirname(os.getcwd()), 'log', 'one pixel'))
 args = parser.parse_args()
 
 
@@ -127,24 +127,26 @@ def attack(img, label, net, target=None, pixels=1, maxiter=75, popsize=400, verb
         predicted_class = np.argmax(predicted_probs)
 
         if (not targeted_attack and predicted_class != label) or (targeted_attack and predicted_class == target_calss):
-            plt.imshow(attack_image[0].squeeze(), cmap='binary')
-            plt.show()
-            print(predicted_class)
-            return 1, attack_result.x.astype(int)
-        return 0, [None]
+            return 1, attack_result.x.astype(int), attack_image, predicted_class
+        return 0, [None], None, None
 
 
 def attack_all(net, loader, pixels=1, targeted=False, maxiter=75, popsize=400, verbose=False, device='cpu'):
     correct = 0
     success = 0
 
+    net = net.eval()
+
     for batch_idx, (input, target) in enumerate(loader):
 
         img_var = input.to(device)
         prior_probs = F.softmax(net(img_var), dim=1)
-        _, indices = torch.max(prior_probs, 1)
+        _, indices = torch.max(prior_probs, dim=1)
 
         if target[0] != indices.data.cpu()[0]:
+            print(prior_probs)
+            print(target[0], indices.data.cpu()[0])
+            print('predict false')
             continue
 
         correct += 1
@@ -157,7 +159,7 @@ def attack_all(net, loader, pixels=1, targeted=False, maxiter=75, popsize=400, v
                 if (target_calss == target[0]):
                     continue
 
-            flag, x = attack(input, target[0], net, target_calss, pixels=pixels, maxiter=maxiter, popsize=popsize,
+            flag, x, attack_image, predicted_class = attack(input, target[0], net, target_calss, pixels=pixels, maxiter=maxiter, popsize=popsize,
                              verbose=verbose)
 
             success += flag
@@ -167,6 +169,11 @@ def attack_all(net, loader, pixels=1, targeted=False, maxiter=75, popsize=400, v
                 success_rate = float(success) / correct
 
             if flag == 1:
+                plt.imshow(attack_image[0].squeeze(), cmap='binary')
+                plt.show()
+                print(predicted_class)
+                plt.savefig(os.path.join(args.log, str(batch_idx) + '-' + str(predicted_class) + '.jpg'))
+                np.save(os.path.join(args.log, str(batch_idx) + '.npy'), attack_image[0].squeeze().numpy())
                 print("success rate: %.4f (%d/%d) [(x,y) = (%d,%d) and (R,G,B)=(%d,%d,%d)]" % (
                     success_rate, success, correct, x[0], x[1], x[2], x[3], x[4]))
         if correct == args.samples:
@@ -197,8 +204,8 @@ def main():
         root = 'E:\ljq\data'
     else:
         root = './data'
-    train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=1)
-    test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False, batch_size=1)
+    train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=1, shuffle=False)
+    # test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False, batch_size=1, shuffle=False)
 
     model = ConvModel()
     if 'win' in sys.platform:

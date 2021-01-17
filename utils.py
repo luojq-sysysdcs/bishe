@@ -33,17 +33,18 @@ def evaluate(model, dataloader, loss_func, device, logger=None):
     loss_log = torch.zeros(len(dataloader))
     acc_log = torch.zeros(len(dataloader))
 
-    for idx, (images, labels) in enumerate(dataloader):
-        images = images.to(device)
-        labels = labels.to(device)
+    with torch.no_grad():
+        for idx, (images, labels) in enumerate(dataloader):
+            images = images.to(device)
+            labels = labels.to(device)
 
-        output = model(images)
-        _, pred = torch.max(output, 1)
-        acc_log[idx] = torch.sum(pred == labels) / len(images)
-        loss = loss_func(output, labels)
-        loss_log[idx] = loss
+            output = model(images)
+            _, pred = torch.max(output, 1)
+            acc_log[idx] = torch.sum(pred == labels) / len(images)
+            loss = loss_func(output, labels)
+            loss_log[idx] = loss
 
-    return loss_log, acc_log
+        return loss_log, acc_log
 
 
 def fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epochs, device, logger=None):
