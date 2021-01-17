@@ -31,7 +31,7 @@ from Simple_model import *
 from GenerateData import *
 from utils import *
 # from models import *
-
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 parser = argparse.ArgumentParser(description='One pixel attack with PyTorch')
 parser.add_argument('--model', default='vgg16', help='The target model')
@@ -127,7 +127,7 @@ def attack(img, label, net, target=None, pixels=1, maxiter=75, popsize=400, verb
         predicted_class = np.argmax(predicted_probs)
 
         if (not targeted_attack and predicted_class != label) or (targeted_attack and predicted_class == target_calss):
-            plt.imshow(attack_image[0], cmap='binary')
+            plt.imshow(attack_image[0].squeeze(), cmap='binary')
             plt.show()
             print(predicted_class)
             return 1, attack_result.x.astype(int)
