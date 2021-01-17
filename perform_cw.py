@@ -58,45 +58,7 @@ for idx, (images, labels) in enumerate(train_dataloader):
     torchvision.utils.make_grid(best_adv_images)
     break
 
-# idx = 0
-# image, label = train_dataset[idx][0].unsqueeze(0), torch.tensor(train_dataset[idx][1]).unsqueeze(0)
-# output = model(image)
-# print(output)
-# pred = torch.max(output, 1)[1].squeeze()
-# print('true label:%d, predict label:%d' % (label, pred))
-# print('-'*40)
-# for i in range(10):
-#     adv_label = torch.tensor([i], dtype=torch.long)
-#     print(adv_label)
-#     adv_image = adversary.forward(image,adv_label)
-#     output = model(adv_image)
-#     print(output)
-#     after_label = torch.max(output, 1)[1].squeeze()
-#     print('true label:%d, after attacking predict label:%d' % (label, after_label))
 
-
-# adv_label = torch.tensor([0], dtype=torch.long)
-# print(adv_label)
-# adv_image = adversary.forward(image,adv_label)
-# after_label = torch.max(model(adv_image), 1)[1].squeeze()
-# print('true label:%d, after attacking predict label:%d' % (label, after_label))
-#
-# adv_image = adv_image.squeeze(0).permute(1, 2, 0).numpy()
-# image = image.squeeze(0).permute(1, 2, 0).numpy()
-# diff = (adv_image - image)
-# diff = np.abs(diff)
-# # diff = diff - np.min(diff)
-# # diff /= np.max(diff)
-# print(adv_image.shape)
-# ax1 = plt.subplot(131)
-# ax2 = plt.subplot(132)
-# ax3 = plt.subplot(133)
-# ax1.imshow(image, cmap='binary')
-# ax1.set_title('label:%d' % label)
-# ax2.imshow(adv_image, cmap='binary')
-# ax2.set_title('label:%d' % after_label)
-# ax3.imshow(diff, cmap='binary')
-# plt.show()
 
 
 
