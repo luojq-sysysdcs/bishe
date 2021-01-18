@@ -19,7 +19,7 @@ print(sys.platform)
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 if 'win' in sys.platform:
-    root = '.\\log\\cw_image\\numpy'
+    root = '.\\log\\one pixel'
 else:
     root = './log/cw_image/numpy'
 
@@ -50,36 +50,31 @@ class FeatureExtractor():
         self.extractor(model)
         return self.features
 
-
-# def feature_extractor(model, x, target_modules):
-#     features = []
-#     for name, module in model._modules.items():
-#         if name.lower() in target_modules:
-#             features.append(x)
-#             x = module(x)
-
 def readNumpyFile(root, size=(28, 28)):
     files = []
     for path, _, fnames in os.walk(root):
+        fnames = [f for f in fnames if 'npy' in f and 0 <= int(f.split('.')[0]) < 20]
+        indexs = [int(f.split('.')[0]) for f in fnames if 'npy' in f and 0 <= int(f.split('.')[0]) < 20]
         for fname in sorted(fnames, key=lambda x:int(x.split('.')[0])):
             full_path = os.path.join(path, fname)
             file = np.load(full_path).reshape(size)
             files.append(file)
         files = np.stack(files, axis=0)
-        return files
+        return files, sorted(indexs)
 
-fake_images = readNumpyFile(root)
+fake_images, indexs = readNumpyFile(root)
 fake_images = torch.from_numpy(fake_images)
 print(fake_images.shape)
 
 
-# if 'win' in sys.platform:
-#     root = 'E:\ljq\data'
-# else:
-#     root = './data'
-# train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=1, shuffle=False)
+if 'win' in sys.platform:
+    root = 'E:\ljq\data'
+else:
+    root = './data'
+train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=1, shuffle=False)
 #
 model = ConvModel()
+model = model.eval()
 if 'win' in sys.platform:
     log_path = '.\\log'
 else:
@@ -88,11 +83,20 @@ load_model(model, log_path, 'conv_model')
 print(model)
 
 fx = FeatureExtractor()
-features = fx(model, fake_images.unsqueeze(1), ['linear'])
-print(features[0][0])
-# activation_layer = '3'
-# gradcam = GradCam(model, model.feature, [activation_layer])
-#
+fake_features = fx(model, fake_images.unsqueeze(1), ['linear'])[0]
+print(fake_features)
+
+print(indexs)
+original_images = [train_dataset[index][0] for index in indexs]
+original_images = torch.stack(original_images, dim=0)
+original_features = fx(model, original_images, ['linear'])[0]
+print(original_features)
+
+print(original_features - fake_features)
+
+activation_layer = '3'
+gradcam = GradCam(model, model.feature, [activation_layer])
+
 # root = os.path.join(os.getcwd(), 'log', 'gradcam_results', 'mnist', 'activation_layer' + activation_layer)
 # if not os.path.exists(root):
 #     os.makedirs(root)
@@ -110,16 +114,25 @@ print(features[0][0])
 #     plt.savefig(os.path.join(root, str(idx), 'gradcam.jpg'))
 #     np.save(os.path.join(root, str(idx), 'gradcam.npy'), activation_map)
 
-# for image in fake_images:
+# root = os.path.join(os.getcwd(), 'log', 'cw_image', 'gradcam', 'mnist', 'activation_layer' + activation_layer)
+# if not os.path.exists(root):
+#     os.makedirs(root)
+# for idx, image in enumerate(fake_images):
 #     image = image.unsqueeze(0).unsqueeze(0)
 #     activation_map_for_fake_images = gradcam(image)
 #     plt.imshow(activation_map_for_fake_images, cmap='binary')
-#     plt.show()
+#     plt.savefig(os.path.join(root, str(idx) + '.jpg'))
 
 
-
-
-
+root = os.path.join(os.getcwd(), 'log', 'one pixel', 'gradcam', 'mnist', 'activation_layer' + activation_layer)
+if not os.path.exists(root):
+    os.makedirs(root)
+for idx, image in zip(indexs, fake_images):
+    image = image.unsqueeze(0).unsqueeze(0)
+    activation_map_for_fake_images = gradcam(image, target_category=9)
+    plt.imshow(activation_map_for_fake_images, cmap='binary')
+    plt.savefig(os.path.join(root, str(idx) + '.jpg'))
+    plt.show()
 
 
 
