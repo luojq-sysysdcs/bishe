@@ -83,7 +83,7 @@ def attack_success(x, img, target_calss, net, targeted_attack=False, verbose=Fal
         confidence = F.softmax(net(input), dim=1).data.cpu().numpy()[0]
         predicted_class = np.argmax(confidence)
 
-        if (verbose):
+        if verbose:
             print("Confidence: %.4f" % confidence[target_calss])
 
         if (targeted_attack and predicted_class == target_calss) or (
@@ -138,7 +138,7 @@ def attack_all(net, loader, pixels=1, targeted=False, maxiter=75, popsize=400, v
     net = net.eval()
 
     for batch_idx, (input, target) in enumerate(loader):
-
+        print('\r' + str(batch_idx), end='')
         img_var = input.to(device)
         prior_probs = F.softmax(net(img_var), dim=1)
         _, indices = torch.max(prior_probs, dim=1)
@@ -171,7 +171,7 @@ def attack_all(net, loader, pixels=1, targeted=False, maxiter=75, popsize=400, v
             if flag == 1:
                 plt.imshow(attack_image[0].squeeze(), cmap='binary')
                 plt.show()
-                print(predicted_class)
+                print('\npredicted class:', predicted_class)
                 plt.savefig(os.path.join(args.log, str(batch_idx) + '-' + str(predicted_class) + '.jpg'))
                 np.save(os.path.join(args.log, str(batch_idx) + '.npy'), attack_image[0].squeeze().numpy())
                 print("success rate: %.4f (%d/%d) [(x,y) = (%d,%d) and (R,G,B)=(%d,%d,%d)]" % (

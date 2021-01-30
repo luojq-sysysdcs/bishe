@@ -5,7 +5,7 @@
 # @Email   : luojq_sysusdcs@163.com
 # @File    : Attack.py
 # @Software: PyCharm
-class Attach():
+class Attack():
     def __init__(self, name, model):
         self.attach = name
         self.model = model

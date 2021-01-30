@@ -18,10 +18,6 @@ import sys
 print(sys.platform)
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
-if 'win' in sys.platform:
-    root = '.\\log\\one pixel'
-else:
-    root = './log/cw_image/numpy'
 
 class FeatureExtractor():
     def __init__(self):
@@ -46,15 +42,16 @@ class FeatureExtractor():
         self.features = []
         self.model = model
         self.x = x
-        self.target_modules =target_modules
+        self.target_modules = target_modules
         self.extractor(model)
         return self.features
+
 
 def readNumpyFile(root, size=(28, 28)):
     files = []
     for path, _, fnames in os.walk(root):
-        fnames = [f for f in fnames if 'npy' in f and 0 <= int(f.split('.')[0]) < 20]
-        indexs = [int(f.split('.')[0]) for f in fnames if 'npy' in f and 0 <= int(f.split('.')[0]) < 20]
+        fnames = [f for f in fnames if 'npy' in f and 0 <= int(f.split('.')[0])]
+        indexs = [int(f.split('.')[0]) for f in fnames if 'npy' in f and 0 <= int(f.split('.')[0])]
         for fname in sorted(fnames, key=lambda x:int(x.split('.')[0])):
             full_path = os.path.join(path, fname)
             file = np.load(full_path).reshape(size)
@@ -62,41 +59,57 @@ def readNumpyFile(root, size=(28, 28)):
         files = np.stack(files, axis=0)
         return files, sorted(indexs)
 
-fake_images, indexs = readNumpyFile(root)
-fake_images = torch.from_numpy(fake_images)
-print(fake_images.shape)
+if __name__ == '__main__':
+    if 'win' in sys.platform:
+        root = './log/one pixel'
+    else:
+        root = './log/cw_image/numpy'
+
+    fake_images, indexs = readNumpyFile(root)
+    fake_images = torch.from_numpy(fake_images)
+    print(indexs)
+    print(fake_images.shape)
 
 
-if 'win' in sys.platform:
-    root = 'E:\ljq\data'
-else:
-    root = './data'
-train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=1, shuffle=False)
-#
-model = ConvModel()
-model = model.eval()
-if 'win' in sys.platform:
-    log_path = '.\\log'
-else:
-    log_path = './log'
-load_model(model, log_path, 'conv_model')
-print(model)
+    if 'win' in sys.platform:
+        root = 'E:\ljq\data'
+    else:
+        root = './data'
+    train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=1, shuffle=False)
+    #
+    model = ConvModel()
+    model = model.eval()
+    if 'win' in sys.platform:
+        log_path = './log'
+    else:
+        log_path = './log'
+    load_model(model, log_path, 'conv_model')
+    print(model)
 
-fx = FeatureExtractor()
-fake_features = fx(model, fake_images.unsqueeze(1), ['linear'])[0]
-print(fake_features)
+    fx = FeatureExtractor()
+    target_module = ['linear']
+    fake_features = fx(model, fake_images.unsqueeze(1), target_module)[0]
+    # print(fake_features)
 
-print(indexs)
-original_images = [train_dataset[index][0] for index in indexs]
-original_images = torch.stack(original_images, dim=0)
-original_features = fx(model, original_images, ['linear'])[0]
-print(original_features)
+    original_images = [train_dataset[index][0] for index in indexs]
+    original_images = torch.stack(original_images, dim=0)
+    original_features = fx(model, original_images, target_module)[0]
+    # print(original_features)
 
-print(original_features - fake_features)
+    print(torch.max(original_features))
+    print(torch.max(fake_features))
+    diff = original_features - fake_features
+    # print(diff)
+    print(torch.mean(diff))
+    plt.hist(diff.cpu().detach().flatten().numpy(), bins=100, log=True)
 
-activation_layer = '3'
-gradcam = GradCam(model, model.feature, [activation_layer])
+    plt.show()
+    print(torch.sum((torch.abs(diff) > 0.1).float()))
 
+# activation_layer = '3'
+# gradcam = GradCam(model, model.feature, [activation_layer])
+
+# grad cam results for original input
 # root = os.path.join(os.getcwd(), 'log', 'gradcam_results', 'mnist', 'activation_layer' + activation_layer)
 # if not os.path.exists(root):
 #     os.makedirs(root)
@@ -114,6 +127,7 @@ gradcam = GradCam(model, model.feature, [activation_layer])
 #     plt.savefig(os.path.join(root, str(idx), 'gradcam.jpg'))
 #     np.save(os.path.join(root, str(idx), 'gradcam.npy'), activation_map)
 
+# grad cam results for cw attack
 # root = os.path.join(os.getcwd(), 'log', 'cw_image', 'gradcam', 'mnist', 'activation_layer' + activation_layer)
 # if not os.path.exists(root):
 #     os.makedirs(root)
@@ -123,16 +137,16 @@ gradcam = GradCam(model, model.feature, [activation_layer])
 #     plt.imshow(activation_map_for_fake_images, cmap='binary')
 #     plt.savefig(os.path.join(root, str(idx) + '.jpg'))
 
-
-root = os.path.join(os.getcwd(), 'log', 'one pixel', 'gradcam', 'mnist', 'activation_layer' + activation_layer)
-if not os.path.exists(root):
-    os.makedirs(root)
-for idx, image in zip(indexs, fake_images):
-    image = image.unsqueeze(0).unsqueeze(0)
-    activation_map_for_fake_images = gradcam(image, target_category=9)
-    plt.imshow(activation_map_for_fake_images, cmap='binary')
-    plt.savefig(os.path.join(root, str(idx) + '.jpg'))
-    plt.show()
+# grad cam results for one pixel
+# root = os.path.join(os.getcwd(), 'log', 'one pixel', 'gradcam', 'mnist', 'activation_layer' + activation_layer)
+# if not os.path.exists(root):
+#     os.makedirs(root)
+# for idx, image in zip(indexs, fake_images):
+#     image = image.unsqueeze(0).unsqueeze(0)
+#     activation_map_for_fake_images = gradcam(image, target_category=9)
+#     plt.imshow(activation_map_for_fake_images, cmap='binary')
+#     plt.savefig(os.path.join(root, str(idx) + '.jpg'))
+#     plt.show()
 
 
 

@@ -25,7 +25,7 @@ def train(model, dataloader, loss_func, optimizer, device):
 
         if (idx+ 1) % (len(dataloader) // 10) == 0:
             _, pred = torch.max(output, 1)
-            acc = torch.sum(pred == labels) / len(images)
+            acc = torch.sum((pred == labels).float()) / len(images)
             print("idx:%3d, loss: %.3f, accuracy:%.3f" % (idx, loss.item(), acc))
 
 def evaluate(model, dataloader, loss_func, device, logger=None):
@@ -40,23 +40,30 @@ def evaluate(model, dataloader, loss_func, device, logger=None):
 
             output = model(images)
             _, pred = torch.max(output, 1)
-            acc_log[idx] = torch.sum(pred == labels) / len(images)
+            acc_log[idx] = torch.sum((pred == labels).float()) / len(images)
             loss = loss_func(output, labels)
             loss_log[idx] = loss
 
         return loss_log, acc_log
 
 
-def fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epochs, device, logger=None):
+def fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epochs, device,
+        logger=None, save_path=None, name=None):
+    best_acc = 0
     for epoch in range(epochs):
         print('epoch:%3d' % epoch)
         train(model, train_dataloader, loss_func, optimizer, device)
         print()
 
-        if (epoch + 1) % (epochs // 5) == 0:
+        if (epoch + 1) % (epochs // 10) == 0:
             print('evaluating...')
             loss_log, acc_log = evaluate(model, test_dataloader, loss_func,device)
-            print('loss:%.3f, accuracy:%.3f' % (loss_log.mean().item(), acc_log.mean().item()))
+            curr_acc = acc_log.mean().item()
+            if curr_acc> best_acc:
+                best_acc = curr_acc
+                if save_path is not None:
+                    save_model(model, save_path, name)
+            print('loss:%.3f, accuracy:%.3f' % (loss_log.mean().item(), curr_acc))
             print()
 
 def save_model(model, path, name):

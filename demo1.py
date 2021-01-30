@@ -17,66 +17,42 @@ from Simple_model import *
 from utils import *
 from GenerateData import *
 import sys
-print(sys.platform)
-
-if 'win' in sys.platform:
-    root = 'E:\ljq\data'
-else:
-    root = './data'
-train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True, shuffle=False)
-test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False)
 
 
 if __name__ == "__main__":
-    model = SM()
-    model = ConvModel()
+    root = 'E:\ljq\data'
+    train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True, shuffle=True, shuffle_label=False)
+    test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False, shuffle_label=False)
+    model = Model4()
+    batch_size = 64
     lr = 1e-2
-    epoch = 10
+    epoch = 20
     optimizer = optim.Adam(model.parameters(), lr=lr)
     loss_func = nn.CrossEntropyLoss()
     device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
-    if 'win' in sys.platform:
-        log_path = '.\\log'
-    else:
-        log_path = './log'
+    print(model)
+    fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
+        save_path='./log', name='model4')
 
-    # fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device)
-
-
-    model = ConvModel()
-    if 'win' in sys.platform:
-        log_path = '.\\log'
-    else:
-        log_path = './log'
-    load_model(model, log_path, 'conv_model')
-    print(torch.max(model(next(iter(train_dataloader))[0]), dim=1)[1])
     # save_model(model, log_path, 'conv_model')
 
-# imagenet = torchvision.datasets.ImageNet(root=root, download=True, split='train')
+    # imagenet = torchvision.datasets.ImageNet(root=root, download=True, split='train')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # model = ConvModel2()
+    # batch_size = 64
+    # lr = 1e-4
+    # epoch = 50
+    # optimizer = optim.Adam(model.parameters(), lr=lr)
+    # loss_func = nn.CrossEntropyLoss()
+    # device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
+    #
+    # transform = transforms.Compose(
+    #     [transforms.ToTensor(),
+    #      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    # root = 'E:/ljq/data'
+    # train_dataset = datasets.CIFAR10(root=root, train=True, download=False, transform=transform)
+    # test_dataset = datasets.CIFAR10(root=root, train=False, download=False, transform=transform)
+    # train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    # test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    #
+    # fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device)
