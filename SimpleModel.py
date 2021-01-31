@@ -156,9 +156,11 @@ class Model4(nn.Module):
         return x
 
 if __name__ == '__main__':
-    model = Model4()
+    model = Model3()
     print(model)
-    summary(model, (1, 28, 28))
+    # print(list(list(model.extract.children())[-1].children())[-1])
+
+    # summary(model, (1, 28, 28))
 
 
 

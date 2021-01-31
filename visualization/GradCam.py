@@ -10,28 +10,12 @@ from PIL import Image
 import numpy as np
 import torch
 import cv2
-
-class FeatureExtractor():
-    """ Class for extracting activations and
-    registering gradients from targetted intermediate layers """
-
-    def __init__(self, model, target_layers):
-        self.model = model
-        self.target_layers = target_layers
-        self.gradients = []
-
-    def save_gradient(self, grad):
-        self.gradients.append(grad)
-
-    def __call__(self, x):
-        outputs = []
-        self.gradients = []
-        for name, module in self.model._modules.items():
-            x = module(x)
-            if name in self.target_layers:
-                x.register_hook(self.save_gradient)
-                outputs += [x]
-        return outputs, x
+import sys
+sys.path.append("..")
+from Simple_model import *
+from GenerateData import *
+from utils import *
+from matplotlib import pyplot as plt
 
 
 class ModelOutputs():
@@ -40,39 +24,60 @@ class ModelOutputs():
     2. Activations from intermeddiate targetted layers.
     3. Gradients from intermeddiate targetted layers. """
 
-    def __init__(self, model, feature_module, target_layers):
+    def __init__(self, model, target_layers):
         self.model = model
-        self.feature_module = feature_module
-        self.feature_extractor = FeatureExtractor(self.feature_module, target_layers)
+        self.target_layers = target_layers
+        self.index = 0
+        self.target_activations = []
+        self.gradients = []
+        self.x = None
 
     def get_gradients(self):
-        return self.feature_extractor.gradients
+        return self.gradients
+
+    def save_gradient(self, grad):
+        self.gradients.append(grad)
+
+    def extract(self, model):
+        # self.target_activations = []
+        for name, child in model.named_children():
+            if len(self.target_layers) > self.index and name == self.target_layers[self.index]:
+                self.index += 1
+                if self.index == len(self.target_layers):
+                    self.x = child(self.x)
+                    self.x.register_hook(self.save_gradient)
+                    self.target_activations.append(self.x)
+                else:
+                    self.extract(child)
+            else:
+                if "avgpool" in name.lower() or 'maxpool' in name.lower():
+                    self.x = child(self.x)
+                    self.x = self.x.view(self.x.size(0), -1)
+                elif 'fc' in name.lower() or 'linear' in name.lower():
+                    self.x = self.x.view(self.x.size(0), -1)
+                    self.x = child(self.x)
+                else:
+                    self.x = child(self.x)
 
     def __call__(self, x):
-        target_activations = []
-        for name, module in self.model._modules.items():
-            if module == self.feature_module:
-                target_activations, x = self.feature_extractor(x)
-                x = x.view(x.size(0),-1)
-            elif "avgpool" in name.lower() or 'maxpool' in name.lower():
-                x = module(x)
-                x = x.view(x.size(0),-1)
-            elif 'linear' in name.lower():
-                x = module(x)
-            else:
-                x = module(x)
+        self.index = 0
+        self.target_activations = []
+        self.gradients = []
+        self.x = x.detach().clone()
+        self.extract(self.model)
+        if self.index ==0:
+            raise ValueError('no activation is extracted!')
+        return self.target_activations, self.x
 
-        return target_activations, x
 
 class GradCam:
-    def __init__(self, model, feature_module, target_layer_names):
+    def __init__(self, model, target_layers):
         self.model = model
-        self.feature_module = feature_module
         self.model.eval()
         self.device = next(model.parameters()).device
         self.model = model.to(self.device)
 
-        self.extractor = ModelOutputs(self.model, self.feature_module, target_layer_names)
+        self.extractor = ModelOutputs(self.model, target_layers)
 
     def forward(self, input_img):
         return self.model(input_img)
@@ -93,7 +98,6 @@ class GradCam:
 
         one_hot = torch.sum(one_hot * output)
 
-        self.feature_module.zero_grad()
         self.model.zero_grad()
         one_hot.backward(retain_graph=True)
 
@@ -114,7 +118,6 @@ class GradCam:
         cam = np.maximum(cam, 0)
         cam = cv2.resize(cam, input_img.shape[2:])
         cam = cam - np.min(cam)
-        print(np.max(cam))
         cam = cam / np.max(cam)
         return cam
 
@@ -138,8 +141,49 @@ def show_cam_on_image(img, mask):
 
 
 
+if __name__ == '__main__':
+    root = 'E:\ljq\data'
+    batch_size = 100
+    train_dataset, train_dataloader = \
+        generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False, shuffle_label=False)
 
+    root = '../log/PGD-model4-0.3'
+    adversarial_dataset, adversarial_dataloader = \
+        get_adversarial_data(root, batch_size=batch_size, shuffle=False)
 
+    model = Model3()
+    model = model.eval()
+    log_path = '../log'
+    load_model(model, log_path, 'model3')
+    print(model)
+    target_layer = ['extract']
+
+    # model = Model4()
+    # model = model.eval()
+    # log_path = '../log'
+    # load_model(model, log_path, 'model4-random')
+    # print(model)
+    # target_layer = ['extract']
+
+    # model = ConvModel()
+    # model = model.eval()
+    # log_path = '../log'
+    # load_model(model, log_path, 'conv_model')
+    # print(model)
+    # target_layer = ['feature', '2']
+
+    gradcam = GradCam(model, target_layer)
+
+    count = 0
+    for idx, (image, label) in enumerate(train_dataset):
+        if count == 10:
+            break
+        if label == 5:
+            print(idx)
+            count += 1
+            cam = gradcam(image.unsqueeze(0))
+            plt.imshow(cam)
+            plt.show()
 
 
 

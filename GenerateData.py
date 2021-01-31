@@ -28,19 +28,23 @@ def make_dataset(path):
     if os.path.exists(os.path.join(path, 'labels.txt')):
         labels = np.loadtxt(os.path.join(path, 'labels.txt'), dtype=np.long)
     else:
-        labels = [None]
+        labels = None
     instances = []
     for root, dirs, files in sorted(os.walk(path)):
         dirs = sorted(dirs, key=lambda x:int(x))
         for idx, dir in enumerate(dirs):
+            if labels is None:
+                label = -1
+            else:
+                label = labels[idx]
             for r, _, fnames in os.walk(os.path.join(path, dir)):
                 random.shuffle(fnames) # pay attention
                 for fname in fnames:
                     p = os.path.join(r, fname)
                     if is_image_file(p):
-                        if labels[idx] == int(fname.split('.')[0]):
+                        if label == int(fname.split('.')[0]):
                             raise ValueError
-                        item = p, labels[idx], int(fname.split('.')[0])
+                        item = p, label, int(fname.split('.')[0])
                         instances.append(item)
                     # break # only load one adversarial image for one clean image
                 break
@@ -100,7 +104,10 @@ class MyDataSet2():
                 sample = self.transform(sample)
             # if self.target_transform is not None:
             #     target = self.target_transform(target)
-            return sample, self.true_labels[idx], choice
+            if self.true_labels is not None:
+                return sample, self.true_labels[idx], choice
+            else:
+                return sample, None, choice
 
     def __len__(self):
         return len(self.samples)
@@ -172,6 +179,8 @@ class MyDataSet():
 def generate_data(root, name, train=True, transform=None, batch_size=None, shuffle=True, shuffle_label=False):
     if name == 'MNIST':
         loader = datasets.MNIST
+    elif name == 'CIFAR':
+        loader = datasets.CIFAR10
     else:
         raise NotImplementedError
     if transform is None:

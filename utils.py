@@ -9,10 +9,17 @@
 import torch
 import os
 
+
 def train(model, dataloader, loss_func, optimizer, device):
     model = model.train().to(device)
 
-    for idx, (images, labels) in enumerate(dataloader):
+    for idx, sample in enumerate(dataloader):
+        if len(sample) == 3:
+            images, _, labels = sample
+        elif len(sample) == 2:
+            images, labels = sample
+        else:
+            raise ValueError
         images = images.to(device)
         labels = labels.to(device)
 
@@ -28,13 +35,20 @@ def train(model, dataloader, loss_func, optimizer, device):
             acc = torch.sum((pred == labels).float()) / len(images)
             print("idx:%3d, loss: %.3f, accuracy:%.3f" % (idx, loss.item(), acc))
 
+
 def evaluate(model, dataloader, loss_func, device, logger=None):
     model = model.eval().to(device)
     loss_log = torch.zeros(len(dataloader))
     acc_log = torch.zeros(len(dataloader))
 
     with torch.no_grad():
-        for idx, (images, labels) in enumerate(dataloader):
+        for idx, sample in enumerate(dataloader):
+            if len(sample) == 3:
+                images, _, labels = sample
+            elif len(sample) == 2:
+                images, labels = sample
+            else:
+                raise ValueError
             images = images.to(device)
             labels = labels.to(device)
 

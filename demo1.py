@@ -13,26 +13,30 @@ from torchvision import datasets, transforms
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from torch import optim
-from Simple_model import *
+from SimpleModel import *
 from utils import *
 from GenerateData import *
 import sys
 
 
 if __name__ == "__main__":
-    root = 'E:\ljq\data'
+    root = 'E:/ljq/data'
     train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True, shuffle=True, shuffle_label=False)
     test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False, shuffle_label=False)
-    model = Model4()
-    batch_size = 64
+
+    batch_size = 16
+    root = './log/PGD-model3-0.3'
+    adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=True)
+
+    model = Model3()
     lr = 1e-2
     epoch = 20
     optimizer = optim.Adam(model.parameters(), lr=lr)
     loss_func = nn.CrossEntropyLoss()
     device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
     print(model)
-    fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
-        save_path='./log', name='model4')
+    fit(model, adversarial_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
+        save_path='./log', name='model3-ad-0.3')
 
     # save_model(model, log_path, 'conv_model')
 

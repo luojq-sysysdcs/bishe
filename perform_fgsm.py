@@ -14,7 +14,7 @@ from torchvision import datasets, transforms
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from torch import optim
-from Simple_model import *
+from SimpleModel import *
 from utils import *
 from FGSM import FGSM
 from PGD import PGD
@@ -52,6 +52,8 @@ labels = []
 success = 0
 count = 1000
 for idx, (image, label) in enumerate(train_dataloader):
+    if idx < 62:
+        continue
     if idx == count:
         break
     labels.append(label.item())

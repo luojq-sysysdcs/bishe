@@ -46,7 +46,7 @@ def plot_embedding(data, label, title):
     ax = plt.subplot(111)
     for i in range(data.shape[0]):
         plt.text(data[i, 0], data[i, 1], str(label[i]),
-                 color=plt.cm.Set1(label[i] / 10.),
+                 color=plt.cm.Set1(abs(label[i]) / 10.),
                  fontdict={'weight': 'bold', 'size': 9})
     plt.xticks([])
     plt.yticks([])
@@ -73,7 +73,7 @@ if __name__ == '__main__':
     batch_size = 100
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
-    root = './log/PGD-model3-0.3'
+    root = './log/PGD-model4-0.3'
     adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=False)
 
     # model = SM()
@@ -83,9 +83,9 @@ if __name__ == '__main__':
     # model = model.eval()
     # print(model)
 
-    model = Model4()
+    model = Model3()
     log_path = './log'
-    load_model(model, log_path, 'model4')
+    load_model(model, log_path, 'model3')
     model = model.eval()
     print(model)
 
@@ -165,40 +165,41 @@ if __name__ == '__main__':
     adversarial_images = []
     adversarial_features = []
     fx = FeatureExtractor()
-    target_module = ['fc']
-    choice = 0
+    target_module = ['avgpool']
+    choice = 5
     for idx, (imgs, tl, al) in enumerate(adversarial_dataloader):
         if len(adversarial_labels) >= 500:
             break
-        wanted = al == choice
+        wanted = al < choice
         # wanted = torch.ones(imgs.shape[0], dtype=torch.bool)
         imgs = imgs[wanted]
         al = al[wanted]
         adversarial_images.append(imgs.flatten(1))
         adversarial_labels += list(al)
-        # feature = fx(model, imgs, target_module)[0]
-        feature = model(imgs)
+        feature = fx(model, imgs, target_module)[0]
+        # feature = model(imgs)
         adversarial_features.append(feature)
 
     for idx, (imgs, ls) in enumerate(train_dataloader):
         if len(true_labels) >= 500:
             break
-        wanted = ls == choice
+        wanted = ls < choice
         # wanted = torch.ones(imgs.shape[0], dtype=torch.bool)
         imgs = imgs[wanted]
         ls = ls[wanted]
         true_images.append(imgs.flatten(1))
         true_labels += list(ls)
-        # feature = fx(model, imgs, target_module)[0]
-        feature = model(imgs)
+        feature = fx(model, imgs, target_module)[0]
+        # feature = model(imgs)
         true_features.append(feature)
 
-    adversarial_features = torch.cat(adversarial_features, 0).detach().cpu().numpy()[:500]
-    adversarial_images = torch.cat(adversarial_images, 0).detach().cpu().numpy()[:500]
-    adversarial_labels = np.array(adversarial_labels)[:500]
-    true_features = torch.cat(true_features, 0).detach().cpu().numpy()[:500]
-    true_images = torch.cat(true_images, 0).detach().cpu().numpy()[:500]
-    true_labels = np.array(true_labels)[:500]
+    count = min(len(adversarial_labels), len(true_labels))
+    adversarial_features = torch.cat(adversarial_features, 0).detach().cpu().numpy()[:count].reshape(count, -1)
+    adversarial_images = torch.cat(adversarial_images, 0).detach().cpu().numpy()[:count].reshape(count, -1)
+    adversarial_labels = np.array(adversarial_labels)[:count]
+    true_features = torch.cat(true_features, 0).detach().cpu().numpy()[:count].reshape(count, -1)
+    true_images = torch.cat(true_images, 0).detach().cpu().numpy()[:count].reshape(count, -1)
+    true_labels = np.array(true_labels)[:count]
     print(adversarial_images.shape)
     print(adversarial_labels.shape)
     print(adversarial_features.shape)
@@ -206,25 +207,23 @@ if __name__ == '__main__':
     print(true_labels.shape)
     print(true_features.shape)
 
-    diff = adversarial_features - true_features
-    # plt.bar(range(10), np.mean(diff, axis=0))
-    width = 0.3
-    plt.bar(range(10), np.mean(adversarial_features, axis=0), width=width, label='adv')
-    plt.bar(np.arange(10) + width, np.mean(true_features, axis=0), width=width, label='clean')
-    plt.title(str(choice))
-    plt.legend()
-    plt.show()
+    # diff = adversarial_features - true_features
+    # # plt.bar(range(10), np.mean(diff, axis=0))
+    # width = 0.3
+    # plt.bar(range(10), np.mean(adversarial_features, axis=0), width=width, label='adv')
+    # plt.bar(np.arange(10) + width, np.mean(true_features, axis=0), width=width, label='clean')
+    # plt.title(str(choice))
+    # plt.legend()
+    # plt.show()
 
-
-
-    # tsne = TSNE(n_components=2, init='pca', random_state=0)
-    # print('Computing t-SNE embedding')
-    # t0 = time()
-    # result = tsne.fit_transform(np.concatenate((adversarial_features, true_features),axis=0))
-    # fig = plot_embedding(result, np.concatenate((adversarial_labels, true_labels+5), axis=0),
-    #                      't-SNE embedding of the digits (time %.2fs)'
-    #                      % (time() - t0))
-    # fig.show()
+    tsne = TSNE(n_components=2, init='pca', random_state=0)
+    print('Computing t-SNE embedding')
+    t0 = time()
+    result = tsne.fit_transform(np.concatenate((adversarial_features, true_features), axis=0))
+    fig = plot_embedding(result, np.concatenate((-adversarial_labels, true_labels), axis=0),
+                         't-SNE embedding of the digits (time %.2fs)'
+                         % (time() - t0))
+    fig.show()
 # ------------------------------------------------
 #     root = 'E:\ljq\data'
 #     batch_size = 1
