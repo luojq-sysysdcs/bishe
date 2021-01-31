@@ -9,7 +9,7 @@ from Attack import Attack
 
 
 class CW(Attack):
-    def __init__(self, model, c=1e-1, kappa=1e-10, steps=1000, lr=1e-1, binary_search_steps=2):
+    def __init__(self, model, c=1e1, kappa=1e-10, steps=500, lr=1e-1, binary_search_steps=2):
         super(CW, self).__init__('CW', model)
         self.c = c
         self.kappa = kappa
@@ -36,6 +36,8 @@ class CW(Attack):
         w = self.inverse_tanh_space(images).detach()
         w.requires_grad = True
         optimizer = optim.Adam([w], lr=self.lr)
+
+        prev_cost = 1e10
 
         for step in range(self.steps):
             adv_images = self.tanh_space(w)
@@ -67,12 +69,13 @@ class CW(Attack):
             best_adv_images = mask * adv_images.detach() + (1 - mask) * best_adv_images
 
             # early stop if loss does not converge
-            # if step % (self.steps // 10) == 0:
-            #     if loss.item() > prev_cost:
-            #         break
-            #     else:
-            #         prev_cost = loss.item()
-
+            if step % (self.steps // 50) == 0:
+                if loss.item() > prev_cost:
+                    print('early stop: %d !' % (step + 1))
+                    break
+                else:
+                    prev_cost = loss.item()
+        print(success)
         return best_adv_images, success, best_l2
 
     def f(self, outputs, labels):
