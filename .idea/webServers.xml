@@ -2,8 +2,8 @@
 <project version="4">
   <component name="WebServers">
     <option name="servers">
-      <webServer id="95aacb0d-a6e6-479b-bc7b-94719bb228b7" name="myserver" url="http://jupyterhub.vickytse.cn/user/17341120/lab?">
-        <fileTransfer accessType="SFTP" host="172.20.9.77" port="22" sshConfigId="fe68318d-d9b4-4a31-8b9e-71c8aee5f051" sshConfig="myserver">
+      <webServer id="95aacb0d-a6e6-479b-bc7b-94719bb228b7" name="myserver" url="">
+        <fileTransfer rootFolder="/data15/jingquan" accessType="SFTP" host="172.18.167.15" port="22" sshConfigId="fe68318d-d9b4-4a31-8b9e-71c8aee5f051" sshConfig="myserver">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>

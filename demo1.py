@@ -24,8 +24,8 @@ if __name__ == "__main__":
     train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True, shuffle=True, shuffle_label=False)
     test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False, shuffle_label=False)
 
-    batch_size = 16
-    root = './log/PGD-model3-0.3'
+    batch_size = 128
+    root = './log/cw/model3-1e1-0'
     adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=True)
 
     model = Model3()
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
     print(model)
     fit(model, adversarial_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
-        save_path='./log', name='model3-ad-0.3')
+        save_path='./log', name='model3-cw-1e1-0')
 
     # save_model(model, log_path, 'conv_model')
 

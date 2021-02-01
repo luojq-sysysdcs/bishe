@@ -9,7 +9,7 @@ from Attack import Attack
 
 
 class CW(Attack):
-    def __init__(self, model, c=1e1, kappa=1e-10, steps=500, lr=1e-1, binary_search_steps=2):
+    def __init__(self, model, c=1e1, kappa=1e-10, steps=500, lr=1e-1, binary_search_steps=2, use_cuda=False):
         super(CW, self).__init__('CW', model)
         self.c = c
         self.kappa = kappa
@@ -17,14 +17,21 @@ class CW(Attack):
         self.lr = lr
         self.binary_search_steps = binary_search_steps
         self.repeat = self.binary_search_steps > 10
+        self.use_cuda = use_cuda
+        print(self.device)
 
     def forward(self, images, labels):
-        images = images.clone().detach().to(self.device)
-        labels = labels.clone().detach().to(self.device)
+        if self.use_cuda:
+            images = images.clone().detach().cuda()
+            labels = labels.clone().detach().cuda()
+            best_adv_images = torch.randn_like(images).cuda()
+            best_l2 = 1e10 * torch.ones((len(images))).cuda()
+        else:
+            images = images.clone().detach()
+            labels = labels.clone().detach()
+            best_adv_images = torch.randn_like(images)
+            best_l2 = 1e10 * torch.ones((len(images)))
         batch_size = images.shape[0]
-
-        best_adv_images = torch.randn_like(images).to(self.device)
-        best_l2 = 1e10 * torch.ones((len(images))).to(self.device)
 
         dim = len(images.shape)
 
@@ -70,7 +77,7 @@ class CW(Attack):
 
             # early stop if loss does not converge
             if step % (self.steps // 50) == 0:
-                if loss.item() > prev_cost:
+                if loss.item() > prev_cost and torch.all(success):
                     print('early stop: %d !' % (step + 1))
                     break
                 else:

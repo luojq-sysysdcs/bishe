@@ -15,6 +15,9 @@ from CW import CW
 import numpy as np
 from GenerateData import *
 from matplotlib import pyplot as plt
+import os
+from PIL import Image
+import time
 
 
 def show(img):
@@ -23,13 +26,20 @@ def show(img):
     plt.show()
 
 if __name__ == '__main__':
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
     root = 'E:/ljq/data'
-    batch_size = 2
+    batch_size = 50
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
     model = Model3()
+    model = model.eval()
     log_path = './log'
     load_model(model, log_path, 'model3')
+    model = model.to(device)
+    if torch.cuda.device_count() > 1:
+        model = torch.nn.DataParallel(model)
     print(model)
 
     # model = SM()
@@ -37,29 +47,56 @@ if __name__ == '__main__':
     # load_model(model, log_path, 'simple_model')
     # print(model)
 
-    adversary = CW(model, c=1e1, kappa=1e-10, steps=500, lr=1e-1)
+    adversary = CW(model, c=1e1, kappa=0, steps=500, lr=1e-1, use_cuda=torch.cuda.is_available())
 
-    save_root = './log/cw_image'
-    if not os.path.exists(save_root):
-        os.mkdir(save_root)
+    index = 0
+    true_labels = []
+    root = './log/cw/model3-1e1-0'
+    if not os.path.exists(root):
+        os.makedirs(root)
 
+    count = 0
     for idx, (images, labels) in enumerate(train_dataloader):
+        if idx * batch_size >= 1000:
+            break
         # adv_images = adversary.forward(images)
+        true_labels += list(labels)
         adv_labels = [[i for i in range(10)] for _ in range(batch_size)]
         for i, label in enumerate(labels):
             del adv_labels[i][label]
         print(labels)
         print(adv_labels)
         adv_labels = torch.tensor(adv_labels, dtype=torch.long)
-        for i in range(2):
+
+        for i in range(len(labels)):
+            p = os.path.join(root, str(index + i))
+            if not os.path.exists(p):
+                os.makedirs(p)
+
+        for i in range(9):
+            t0 = time.time()
             adv_images, success, L2 = adversary.forward(images, adv_labels[:, i])
-            print(adv_images.shape)
-            img = torchvision.utils.make_grid(
-                torch.cat([images, adv_images], dim=0), nrow=len(labels), padding=2, pad_value=1)
-            show(img)
-        break
+            adv_images = adv_images.cpu()
+            for j in range(len(labels)):
+                if success[j]:
+                    count += 1
+                    img = np.uint8(adv_images[j].cpu().clone().detach().numpy().squeeze() * 255)
+                    img = Image.fromarray(img)
+                    img = img.convert('L')
+                    p = os.path.join(root, str(index + j), str(adv_labels[:, i][j].item()) + '.jpg')
+                    img.save(p)
+            if idx < 10:
+                img = torchvision.utils.make_grid(
+                    torch.cat([images, adv_images], dim=0), nrow=len(labels), padding=2, pad_value=1)
+                show(img)
+            t1 = time.time()
+            print('time used: %f' % (t1 - t0))
+        index += len(labels)
 
 
+        if idx % 5 == 0:
+            print('success rate : %f' % (count / (9 * (idx + 1) * batch_size)))
+    np.savetxt(os.path.join(root, 'labels.txt'), true_labels, fmt="%d")
 
 
 

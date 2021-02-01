@@ -8,7 +8,7 @@
 class Attack():
     def __init__(self, name, model):
         self.attach = name
-        self.model = model
+        self.model = model.eval()
         self._targeted = -1  # targeted attach(-1) or merely misclassify(1)
         self.device = next(model.parameters()).device
 

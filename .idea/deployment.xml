@@ -1,14 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="myserver">
+  <component name="PublishConfigData" autoUpload="Always" serverName="jingquan@172.18.167.15:22">
     <serverData>
+      <paths name="jingquan@172.18.167.15:22">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/data15/jingquan/bishe" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="myserver">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/bishe" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
     </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>

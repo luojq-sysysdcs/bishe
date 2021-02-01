@@ -113,10 +113,13 @@ class MyDataSet2():
         return len(self.samples)
 
 def get_adversarial_data(root, batch_size=64, shuffle=False):
+    print('getting adversarial dataset...')
     transform = transforms.Compose([transforms.ToTensor(), ])
     adversarial_dataset = MyDataSet2(root, transform=transform)
     adversarial_dataloader = DataLoader(adversarial_dataset,
                                         batch_size=batch_size, shuffle=shuffle, num_workers=0)
+    print('num of data:', len(adversarial_dataset))
+    print('num of batch', len(adversarial_dataloader))
     return adversarial_dataset, adversarial_dataloader
 
 class MyDataSet():

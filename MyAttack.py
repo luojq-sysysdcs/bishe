@@ -20,7 +20,7 @@ from PIL import Image
 
 class MyAttack(Attack):
     def __init__(self, model, eps, dataset,
-                 class_num=10, T=1000, steps=500, lr=1e-2, path='./log/perturbation'):
+                 class_num=10, T=1000, steps=5, lr=1e-2, path='./log/perturbation'):
         super(MyAttack,self).__init__('MyAttack', model)
         self.eps = eps
         self.model = model.eval()
@@ -35,7 +35,8 @@ class MyAttack(Attack):
             os.makedirs(self.path)
 
         self.load_perturbation()
-        self.perturbation[5] = self._make_perturbation(5)
+        for i in range(10):
+            self.perturbation[i] = self._make_perturbation(i).cpu().detach().clone()
 
     def tanh_space(self, x):
         return (torch.tanh(x)+1) * (1/2)
@@ -60,7 +61,7 @@ class MyAttack(Attack):
         # perturb = torch.sum(torch.cat(imgs, dim=0), dim=0, keepdim=True).unsqueeze(0)
         # perturb = perturb / torch.max(perturb)
         # perturb = perturb.detach().clone()
-        w = torch.rand_like(self.dataset[0][0]).unsqueeze(0)
+        w = torch.rand_like(self.dataset[0][0]).unsqueeze(0).to(self.device)
         original = w.detach().clone()
         # w = self.dataset[0][0].detach().clone().unsqueeze(0)
         w = self.inverse_tanh_space(w).detach()
@@ -69,12 +70,12 @@ class MyAttack(Attack):
 
         mseloss = nn.MSELoss()
         optimizer = optim.Adam([w], lr=self.lr)
-        logit_target = torch.ones((1, self.class_num), dtype=torch.float) * -1
+        logit_target = torch.ones((1, self.class_num), dtype=torch.float).to(self.device) * -1
         logit_target[0, 0] = 1
 
         celoss = nn.CrossEntropyLoss()
         # optimizer = optim.Adam([w], lr=self.lr)
-        pop_target = torch.tensor([0], dtype=torch.long)
+        pop_target = torch.tensor([attack_label], dtype=torch.long).to(self.device)
 
         for step in range(self.steps):
             perturb = self.tanh_space(w)
@@ -98,7 +99,7 @@ class MyAttack(Attack):
             print(L3.item())
 
         perturb = self.tanh_space(w)
-        plt.imshow(perturb.detach().clone().squeeze().numpy(), cmap='binary')
+        plt.imshow(perturb.cpu().detach().clone().squeeze().numpy(), cmap='binary')
         plt.show()
         print(perturb.shape)
         self.save_perturbation(perturb, attack_label)
@@ -141,17 +142,21 @@ class MyAttack(Attack):
 
 if __name__ == '__main__':
 
-    root = 'E:\ljq\data'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    root = 'E:/ljq/data'
     batch_size = 4
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
-    root = './log/PGD-model3-0.3'
+    root = './log/cw/model3-1e1-0'
+    batch_size = 128
     adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=False)
 
     model = Model3()
     log_path = './log'
-    load_model(model, log_path, 'model3-ad-0.3')
+    load_model(model, log_path, 'model3-cw-1e1-0')
     model = model.eval()
+    model = model.to(device)
     print(model)
 
     # choice = 0
@@ -168,8 +173,6 @@ if __name__ == '__main__':
     #     plt.imshow(diff.detach().squeeze().clone().numpy(), cmap='binary')
     #     plt.show()
     #     print(model(diff.unsqueeze(0)))
-
-
 
     adversary = MyAttack(model, eps=0.4, dataset=train_dataset)
     count = 0
