@@ -22,10 +22,8 @@ class DeepFool(Attack):
         adv_images = images.clone().detach().to(self.device)
         # adv_images = torch.empty_like(images).to(self.device)
         for b in range(images.shape[0]):
-            image = images[b:b+1].clone().detach().to(self.device)
-            label = labels[b:b+1].clone().detach().to(self.device)
-
-
+            image = images[b:b + 1].clone().detach().to(self.device)
+            label = labels[b:b + 1].clone().detach().to(self.device)
 
             for i in range(self.steps):
                 image.requires_grad = True
@@ -54,13 +52,11 @@ class DeepFool(Attack):
                 value = torch.abs(f_prime) / torch.norm(nn.Flatten()(w_prime), p=2, dim=1)
                 _, hat_L = torch.min(value, 0)
 
-                r = (torch.abs(f_prime[hat_L])) / torch.norm(w_prime[hat_L], p=2)**2 * w_prime[hat_L]
+                r = (torch.abs(f_prime[hat_L])) / torch.norm(w_prime[hat_L], p=2) ** 2 * w_prime[hat_L]
 
                 image = torch.clamp(image + r, min=0, max=1).detach()
 
-
-
-            adv_images[b:b+1] = image
+            adv_images[b:b + 1] = image
         return adv_images
 
     def construct_jacobian(self, y, x, retain_graph=False):
@@ -73,11 +69,3 @@ class DeepFool(Attack):
             x_grads.append(x.grad.clone().detach())
 
         return torch.stack(x_grads).reshape(*y.shape, *x.shape)
-
-
-
-
-
-
-
-

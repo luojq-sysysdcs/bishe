@@ -31,13 +31,13 @@ if __name__ == '__main__':
 
     adversary = CW(model, c=1e1, kappa=0, steps=500, lr=1e-1, use_cuda=torch.cuda.is_available())
 
-    index = 0
-    true_labels = []
     root = './log/mnist/cw/resent'
     if not os.path.exists(root):
         os.makedirs(root)
 
     count = 0
+    index = 0
+    true_labels = []
     for idx, (images, labels) in enumerate(train_dataloader):
         if idx * batch_size >= 1000:
             break

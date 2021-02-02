@@ -15,32 +15,29 @@ import os
 from PIL import Image
 import numpy as np
 import time
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+from models.SimpleModel import *
 
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 if __name__ == '__main__':
-    root = 'E:/ljq/data'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    batch_size = 100
+
+    root = 'E:/ljq/data'
+    batch_size = 50
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
-    # model = SM()
-    # model = ConvModel()
-    # log_path = '.\\log'
-    # load_model(model, log_path, 'conv_model')
-    # model = model.eval()
-    # print(model)
-
-    model = Model4()
-    log_path = './log'
-    load_model(model, log_path, 'model4')
+    model = vgg_mnist()
+    log_path = './log/mnist/model'
+    load_model(model, log_path, 'vgg')
     model = model.eval().to(device)
     print(model)
 
     # adversary = FGSM(model, eps=0.15)
-    adversary = PGD(model, eps=0.3, alpha=1 / 255, steps=200, random_start=False)
+    adversary = PGD(model, eps=0.2, alpha=1 / 255, steps=200, random_start=False)
+    adversary = CW(model, c=1e1, kappa=0, steps=500, lr=1e-1, use_cuda=torch.cuda.is_available())
 
-    root = './log/pgd/model4-0.3'
+    root = './log/mnist/pgd/vgg-0.2'
     if not os.path.exists(root):
         os.makedirs(root)
 
@@ -81,47 +78,47 @@ if __name__ == '__main__':
                 img = torch.cat([images, adv_images], dim=1)
                 img = img.reshape((-1, 1, *img.shape[-2:]))
                 img = torchvision.utils.make_grid(img, nrow=10, padding=2, pad_value=1)
-                show(img)
+                show(img, os.path.join(root, str(idx) + '-' + str(i)))  #
             t1 = time.time()
             print('time used: %f' % (t1 - t0))
         index += len(labels)
 
-        if idx % 5 == 0:
+        if idx % 1 == 0:
             print('success rate : %f' % (count / (9 * (idx + 1) * batch_size)))
     np.savetxt(os.path.join(root, 'labels.txt'), true_labels, fmt="%d")
 
 # -----------------------------
-    # labels = []
-    # success = 0
-    # count = 1000
-    # for idx, (image, label) in enumerate(train_dataloader):
-    #     if idx * batch_size >= 1000:
-    #         continue
-    #     labels.append(label.item())
-    #     if not os.path.exists(os.path.join(root, str(idx))):
-    #         os.makedirs(os.path.join(root, str(idx)))
-    #     # if torch.max(model(image), dim=1)[1].item() != label:
-    #     #     continue
-    #     for target_label in range(10):
-    #         if target_label == label:
-    #             continue
-    #         adv_label = torch.tensor([target_label], dtype=torch.long)
-    #         adv_image = adversary.forward(image,adv_label)
-    #         t = (adv_image.detach().clone()*255).to(torch.uint8) / 255
-    #         after_label = torch.max(model(t), 1)[1].squeeze()
-    #         if after_label.item() != target_label:
-    #             continue
-    #         success += 1
-    #         t = np.uint8((t.squeeze() * 255).numpy())
-    #         adv_image = Image.fromarray(t)
-    #         adv_image = adv_image.convert('L')
-    #         adv_image.save(os.path.join(root, str(idx), str(target_label)+'.jpg'))
-    #     if idx % 10 == 0:
-    #         print('success rate: %f (%d / %d)' % (success / ((idx + 1) * 9), success, (idx + 1) * 9))
-    # print('-'*20)
-    # print(labels)
-    # print('success rate: %f (%d / %d)' % (success / (count * 9), success, count * 9))
-    # np.savetxt(os.path.join(root, 'labels.txt'), labels, fmt="%d")
+# labels = []
+# success = 0
+# count = 1000
+# for idx, (image, label) in enumerate(train_dataloader):
+#     if idx * batch_size >= 1000:
+#         continue
+#     labels.append(label.item())
+#     if not os.path.exists(os.path.join(root, str(idx))):
+#         os.makedirs(os.path.join(root, str(idx)))
+#     # if torch.max(model(image), dim=1)[1].item() != label:
+#     #     continue
+#     for target_label in range(10):
+#         if target_label == label:
+#             continue
+#         adv_label = torch.tensor([target_label], dtype=torch.long)
+#         adv_image = adversary.forward(image,adv_label)
+#         t = (adv_image.detach().clone()*255).to(torch.uint8) / 255
+#         after_label = torch.max(model(t), 1)[1].squeeze()
+#         if after_label.item() != target_label:
+#             continue
+#         success += 1
+#         t = np.uint8((t.squeeze() * 255).numpy())
+#         adv_image = Image.fromarray(t)
+#         adv_image = adv_image.convert('L')
+#         adv_image.save(os.path.join(root, str(idx), str(target_label)+'.jpg'))
+#     if idx % 10 == 0:
+#         print('success rate: %f (%d / %d)' % (success / ((idx + 1) * 9), success, (idx + 1) * 9))
+# print('-'*20)
+# print(labels)
+# print('success rate: %f (%d / %d)' % (success / (count * 9), success, count * 9))
+# np.savetxt(os.path.join(root, 'labels.txt'), labels, fmt="%d")
 # -----------------------------
 # -----------------------------------
 # idx = 80
@@ -149,29 +146,3 @@ if __name__ == '__main__':
 # ax2.imshow(adv_image)
 # ax2.set_title('label:3')
 # plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
