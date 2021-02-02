@@ -3,19 +3,20 @@
 # @Time    : 2021/1/7 21:15
 # @Author  : luojq
 # @Email   : luojq_sysusdcs@163.com
-# @File    : perform_fgsm.py
+# @File    : perform_attack.py
 # @Software: PyCharm
 
 
 import torchvision
 from utils import *
-from PGD import PGD
 from GenerateData import *
 import os
 from PIL import Image
 import numpy as np
 import time
 from models.SimpleModel import *
+from attack import *
+import torch
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -24,7 +25,7 @@ if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     root = 'E:/ljq/data'
-    batch_size = 50
+    batch_size = 20
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
     model = vgg_mnist()
@@ -34,47 +35,52 @@ if __name__ == '__main__':
     print(model)
 
     # adversary = FGSM(model, eps=0.15)
-    adversary = PGD(model, eps=0.2, alpha=1 / 255, steps=200, random_start=False)
-    adversary = CW(model, c=1e1, kappa=0, steps=500, lr=1e-1, use_cuda=torch.cuda.is_available())
+    # adversary = PGD(model, eps=0.2, alpha=1 / 255, steps=200, random_start=False)
+    # adversary = CW(model, c=1e1, kappa=0, steps=500, lr=1e-1, use_cuda=torch.cuda.is_available())
+    num_classes = 10
+    adversary = DeepFool(model, num_classes=num_classes, steps=100)
 
-    root = './log/mnist/pgd/vgg-0.2'
+    root = './log/mnist/deepfool/vgg'
     if not os.path.exists(root):
         os.makedirs(root)
 
     count = 0
     index = 0
+    target_attack = False
     true_labels = []
     for idx, (images, labels) in enumerate(train_dataloader):
         if idx * batch_size >= 1000:
             break
-        # adv_images = adversary.forward(images)
         true_labels += list(labels)
-        adv_labels = [[i for i in range(10)] for _ in range(batch_size)]
-        for i, label in enumerate(labels):
-            del adv_labels[i][label]
-        print(labels)
-        print(adv_labels)
+        if target_attack:
+            adv_labels = [[i for i in range(num_classes)] for _ in range(batch_size)]
+            for i, label in enumerate(labels):
+                del adv_labels[i][label]
+        else:
+            adv_labels = labels.unsqueeze(1).numpy()
         adv_labels = torch.tensor(adv_labels, dtype=torch.long)
+        print(list(labels), list(adv_labels))
 
-        for i in range(len(labels)):
+        for i in range(batch_size):
             p = os.path.join(root, str(index + i))
             if not os.path.exists(p):
                 os.makedirs(p)
 
-        for i in range(9):
+        for i in range(adv_labels.shape[1]):
             t0 = time.time()
             adv_images, success = adversary.forward(images, adv_labels[:, i])
             print(success)
+            al = torch.max(model(adv_images), dim=1)[1]
             adv_images = adv_images.cpu()
-            for j in range(len(labels)):
+            for j in range(batch_size):
                 if success[j]:
                     count += 1
                     img = np.uint8(adv_images[j].cpu().clone().detach().numpy().squeeze() * 255)
                     img = Image.fromarray(img)
                     img = img.convert('L')
-                    p = os.path.join(root, str(index + j), str(adv_labels[:, i][j].item()) + '.jpg')
+                    p = os.path.join(root, str(index + j), str(al[j].item()) + '.jpg')
                     img.save(p)
-            if idx < 2:
+            if idx < 5:
                 img = torch.cat([images, adv_images], dim=1)
                 img = img.reshape((-1, 1, *img.shape[-2:]))
                 img = torchvision.utils.make_grid(img, nrow=10, padding=2, pad_value=1)
@@ -84,7 +90,12 @@ if __name__ == '__main__':
         index += len(labels)
 
         if idx % 1 == 0:
-            print('success rate : %f' % (count / (9 * (idx + 1) * batch_size)))
+            if target_attack:
+                print('success rate : %d / %d ( %f ) ' % (count, ((num_classes - 1) * (idx + 1) * batch_size),
+                                                          count / ((num_classes - 1) * (idx + 1) * batch_size)))
+            else:
+                print('success rate : %d / %d ( %f ) ' % (count, ((num_classes - 1) * (idx + 1) * batch_size),
+                                                          count / ((num_classes - 1) * (idx + 1) * batch_size)))
     np.savetxt(os.path.join(root, 'labels.txt'), true_labels, fmt="%d")
 
 # -----------------------------
