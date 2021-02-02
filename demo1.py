@@ -13,6 +13,7 @@ from torch import optim
 
 if __name__ == "__main__":
     root = 'E:/ljq/data'
+    batch_size = 2
     train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True, shuffle=True, shuffle_label=False)
     test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False, shuffle_label=False)
 
@@ -30,7 +31,7 @@ if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(model)
     fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
-        save_path='./log/cifar/model', name='model3')
+        save_path='./log/mnist/model', name='resnet')
 
     # model = Model3()
     # log_path = './log'
