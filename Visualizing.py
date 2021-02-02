@@ -6,10 +6,8 @@
 # @File    : Visualizing.py
 # @Software: PyCharm
 
-import torch
-from GenerateData import *
 from visualization.GradCam import *
-from Simple_model import *
+from models.SimpleModel import *
 from utils import load_model
 from matplotlib import pyplot as plt
 import os
@@ -68,11 +66,11 @@ def readNumpyFile(root, size=(28, 28)):
         return files, sorted(indexs)
 
 if __name__ == '__main__':
-    root = 'E:\ljq\data'
-    batch_size = 100
+    root = 'E:/ljq/data'
+    batch_size = 1
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
-    root = './log/PGD-model4-0.3'
+    root = './log/PGD-model3-0.3'
     adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=False)
 
     model = Model3()
@@ -82,15 +80,14 @@ if __name__ == '__main__':
     print(model)
 
     fx = FeatureExtractor()
-    target_module = ['linear']
+    target_module = ['extract']
 
-    activation_layer = '3'
-    gradcam = GradCam(model, model.feature, [activation_layer])
+    gradcam = GradCam(model, target_module)
 
     # grad cam results for original input
-    root = os.path.join(os.getcwd(), 'log', 'gradcam_results', 'mnist', 'activation_layer' + activation_layer)
-    if not os.path.exists(root):
-        os.makedirs(root)
+    # root = os.path.join(os.getcwd(), 'log', 'gradcam_results', 'mnist', 'activation_layer' + activation_layer)
+    # if not os.path.exists(root):
+    #     os.makedirs(root)
     for idx, (image, label) in enumerate(train_dataloader):
         if idx == 20:
             break
@@ -103,7 +100,22 @@ if __name__ == '__main__':
         plt.savefig(os.path.join(root, str(idx), 'original.jpg'))
         plt.imshow(activation_map, cmap='binary')
         plt.savefig(os.path.join(root, str(idx), 'gradcam.jpg'))
-        np.save(os.path.join(root, str(idx), 'gradcam.npy'), activation_map)
+        plt.show()
+        # np.save(os.path.join(root, str(idx), 'gradcam.npy'), activation_map)
+
+    for idx, (image, label) in enumerate(adversarial_dataloader):
+        if idx == 20:
+            break
+        if torch.max(model(image), dim=1)[1].item() != label:
+            continue
+        activation_map = gradcam(image)
+        plt.imshow(image.squeeze().numpy(), cmap='binary', interpolation='none')
+        if not os.path.exists(os.path.join(root, str(idx))):
+            os.makedirs(os.path.join(root, str(idx)))
+        plt.savefig(os.path.join(root, str(idx), 'original.jpg'))
+        plt.imshow(activation_map, cmap='binary')
+        plt.savefig(os.path.join(root, str(idx), 'gradcam.jpg'))
+        plt.show()
 
     # grad cam results for cw attack
     # root = os.path.join(os.getcwd(), 'log', 'cw_image', 'gradcam', 'mnist', 'activation_layer' + activation_layer)

@@ -6,23 +6,10 @@
 # @File    : TSNE.py
 # @Software: PyCharm
 from time import time
-import numpy as np
-import matplotlib.pyplot as plt
-import torch
-import torchvision
-from torch import nn
-from torchvision import datasets, transforms
-from matplotlib import pyplot as plt
-from torch.utils.data import DataLoader
-from torch import optim
-from Simple_model import *
 from utils import *
-from FGSM import FGSM
-from PGD import PGD
 from GenerateData import *
 import os
-from PIL import Image
-import matplotlib as mpl
+
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 from sklearn import datasets
 from sklearn.manifold import TSNE
@@ -73,7 +60,8 @@ if __name__ == '__main__':
     batch_size = 100
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
-    root = './log/PGD-model4-0.3'
+    # root = './log/PGD-model3-0.2'
+    root = './log/cw/model3-1e1-0'
     adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=False)
 
     # model = SM()
@@ -89,24 +77,24 @@ if __name__ == '__main__':
     model = model.eval()
     print(model)
 
-    count = 0
-    for idx, (imgs, tl, al) in enumerate(adversarial_dataloader):
-        output = model(imgs)
-        pre = torch.max(output, dim=1)[1]
-        count += torch.sum((pre==tl).float())
-    print(count / len(adversarial_dataset))
+    # count = 0
+    # for idx, (imgs, tl, al) in enumerate(adversarial_dataloader):
+    #     output = model(imgs)
+    #     pre = torch.max(output, dim=1)[1]
+    #     count += torch.sum((pre==tl).float())
+    # print(count / len(adversarial_dataset))
 
     # features = []
     # labels = []
     # images = []
     # fx = FeatureExtractor()
-    # target_module = ['linear']
+    # target_module = ['avgpool']
     # for idx, (imgs, ls) in enumerate(train_dataloader):
     #     if idx == 10:
     #         break
     #     images.append(imgs.flatten(1))
     #     labels.append(ls)
-    #     feature = fx(model, imgs, target_module)[0]
+    #     feature = fx(model, imgs, target_module)[0].flatten(start_dim=1)
     #     features.append(feature)
     # images = torch.cat(images, 0).detach().cpu().numpy()
     # labels = torch.cat(labels, 0).detach().cpu().numpy()
@@ -118,7 +106,7 @@ if __name__ == '__main__':
     # tsne = TSNE(n_components=2, init='pca', random_state=0)
     # print('Computing t-SNE embedding')
     # t0 = time()
-    # result = tsne.fit_transform(images)
+    # result = tsne.fit_transform(features)
     # fig = plot_embedding(result, labels,
     #                      't-SNE embedding of the digits (time %.2fs)'
     #                      % (time() - t0))
@@ -129,14 +117,14 @@ if __name__ == '__main__':
 #     adversarial_labels = []
 #     images = []
 #     fx = FeatureExtractor()
-#     target_module = ['linear']
+#     target_module = ['avgpool']
 #     for idx, (imgs, tl, al) in enumerate(adversarial_dataloader):
 #         if idx == 10:
 #             break
 #         images.append(imgs.flatten(1))
 #         true_labels.append(tl)
 #         adversarial_labels.append(al)
-#         feature = fx(model, imgs, target_module)[0]
+#         feature = fx(model, imgs, target_module)[0].flatten(start_dim=1)
 #         features.append(feature)
 #     images = torch.cat(images, 0).detach().cpu().numpy()
 #     true_labels = torch.cat(true_labels, 0).detach().cpu().numpy()
@@ -151,7 +139,7 @@ if __name__ == '__main__':
 #     print('Computing t-SNE embedding')
 #     t0 = time()
 #     result = tsne.fit_transform(features)
-#     fig = plot_embedding(result, adversarial_labels,
+#     fig = plot_embedding(result, true_labels,
 #                          't-SNE embedding of the digits (time %.2fs)'
 #                          % (time() - t0))
 #     fig.show()
@@ -176,7 +164,7 @@ if __name__ == '__main__':
         al = al[wanted]
         adversarial_images.append(imgs.flatten(1))
         adversarial_labels += list(al)
-        feature = fx(model, imgs, target_module)[0]
+        feature = fx(model, imgs, target_module)[0].flatten(start_dim=1)
         # feature = model(imgs)
         adversarial_features.append(feature)
 
@@ -189,7 +177,7 @@ if __name__ == '__main__':
         ls = ls[wanted]
         true_images.append(imgs.flatten(1))
         true_labels += list(ls)
-        feature = fx(model, imgs, target_module)[0]
+        feature = fx(model, imgs, target_module)[0].flatten(start_dim=1)
         # feature = model(imgs)
         true_features.append(feature)
 

@@ -6,21 +6,24 @@
 # @File    : MyAttack.py
 # @Software: PyCharm
 
-import os
-import numpy as np
-import torch
-import torch.nn as nn
 import torch.optim as optim
-from Attack import Attack
+from attack.Attack import Attack
 from GenerateData import *
-from SimpleModel import *
+from models.SimpleModel import *
 from matplotlib import pyplot as plt
 from PIL import Image
+import torchvision
+
+
+def show(img):
+    npimg = img.numpy()
+    plt.imshow(np.transpose(npimg, (1,2,0)), interpolation='nearest')
+    plt.show()
 
 
 class MyAttack(Attack):
     def __init__(self, model, eps, dataset,
-                 class_num=10, T=1000, steps=5, lr=1e-2, path='./log/perturbation'):
+                 class_num=10, T=100, steps=10000, lr=1e-3, path='./log/perturbation'):
         super(MyAttack,self).__init__('MyAttack', model)
         self.eps = eps
         self.model = model.eval()
@@ -29,14 +32,16 @@ class MyAttack(Attack):
         self.steps = steps
         self.class_num = class_num
         self.lr = lr
-        self.perturbation = [None for i in range(10)]
+        self.perturbation = None
         self.path = path
         if not os.path.exists(self.path):
             os.makedirs(self.path)
 
-        self.load_perturbation()
-        for i in range(10):
-            self.perturbation[i] = self._make_perturbation(i).cpu().detach().clone()
+        self.perturbation = self.load_perturbation()
+        if self.perturbation is None:
+            self.perturbation = self._make_perturbation()
+            self.save_perturbation()
+        self.evaluate()
 
     def tanh_space(self, x):
         return (torch.tanh(x)+1) * (1/2)
@@ -47,35 +52,24 @@ class MyAttack(Attack):
     def atanh(self, x):
         return 0.5*torch.log((1+x)/(1-x))
 
-    def _make_perturbation(self, attack_label, num=100):
-        if self.perturbation[attack_label] is not None:
-            return self.perturbation[attack_label]
-        # imgs = []
-        # count = 0
-        # perturb = None
-        # for img, lb in self.dataset:
-        #     if count == num:
-        #         break
-        #     if lb == 0:
-        #         imgs.append(img.detach().clone())
-        # perturb = torch.sum(torch.cat(imgs, dim=0), dim=0, keepdim=True).unsqueeze(0)
-        # perturb = perturb / torch.max(perturb)
-        # perturb = perturb.detach().clone()
-        w = torch.rand_like(self.dataset[0][0]).unsqueeze(0).to(self.device)
-        original = w.detach().clone()
+    def _make_perturbation(self):
+
+        w = torch.rand_like(self.dataset[0][0]).to(self.device)
+        w = w.repeat([10] + [1 for _ in range(len(w.shape))])
+        # original = w.detach().clone()
         # w = self.dataset[0][0].detach().clone().unsqueeze(0)
         w = self.inverse_tanh_space(w).detach()
         w.requires_grad = True
 
 
-        mseloss = nn.MSELoss()
+        # mseloss = nn.MSELoss()
         optimizer = optim.Adam([w], lr=self.lr)
-        logit_target = torch.ones((1, self.class_num), dtype=torch.float).to(self.device) * -1
-        logit_target[0, 0] = 1
+        # logit_target = torch.ones((1, self.class_num), dtype=torch.float).to(self.device) * -1
+        # logit_target[0, 0] = 1
 
         celoss = nn.CrossEntropyLoss()
         # optimizer = optim.Adam([w], lr=self.lr)
-        pop_target = torch.tensor([attack_label], dtype=torch.long).to(self.device)
+        pop_target = torch.tensor([i for i in range(10)], dtype=torch.long).to(self.device)
 
         for step in range(self.steps):
             perturb = self.tanh_space(w)
@@ -92,27 +86,30 @@ class MyAttack(Attack):
             loss.backward()
             optimizer.step()
 
-            # perturb = perturb - torch.min(perturb).item()
-            # perturb = perturb / torch.max(perturb).item()
+            if (step + 1) % (self.steps // 10) == 0:
+                print(output)
+                print(L3.item())
 
-            print(output)
-            print(L3.item())
-
-        perturb = self.tanh_space(w)
-        plt.imshow(perturb.cpu().detach().clone().squeeze().numpy(), cmap='binary')
-        plt.show()
+                perturb = self.tanh_space(w).detach().cpu()
+                img = torchvision.utils.make_grid(perturb, nrow=5, padding=2, pad_value=1)
+                show(img)
+        # plt.imshow(perturb.cpu().detach().clone().squeeze().numpy(), cmap='binary')
+        # plt.show()
+        perturb = self.tanh_space(w).detach().cpu()
         print(perturb.shape)
-        self.save_perturbation(perturb, attack_label)
-        return perturb.squeeze(0)
+        return perturb
 
-    def save_perturbation(self, perturb, attack_label):
-        img = np.uint8(perturb.detach().clone().cpu().squeeze().numpy() * 255)
-        img = Image.fromarray(img)
-        img = img.convert('L')
-        img.save(os.path.join(self.path, str(attack_label) + '.jpg'))
+    def save_perturbation(self):
+        for idx, img in enumerate(self.perturbation):
+            img = np.uint8(img.detach().clone().cpu().squeeze().numpy() * 255)
+            img = Image.fromarray(img)
+            img = img.convert('L')
+            img.save(os.path.join(self.path, str(idx) + '.jpg'))
 
     def load_perturbation(self):
+        self.perturbation = []
         for _, dirs, fnames in os.walk(self.path):
+            fnames = sorted(fnames, key=lambda x: int(x.split('.')[0]))
             for fname in fnames:
                 label = int(fname.split('.')[0])
                 p = os.path.join(self.path, fname)
@@ -120,41 +117,37 @@ class MyAttack(Attack):
                 perturb = np.array(perturb) / 255
                 perturb = torch.from_numpy(perturb).float()
                 perturb = perturb.reshape(-1, *perturb.shape)
-                self.perturbation[label] = perturb
+                self.perturbation.append(perturb)
+                # self.perturbation[label] = perturb
             break
+        return torch.stack(self.perturbation, dim=0)
 
-    def __call__(self, image, label, rate=0.8):
-        # plt.imshow(image.detach().clone().squeeze().numpy(), cmap='binary')
-        # plt.show()
-        # print(self.model(self.perturbation[label].unsqueeze(0)))
-        diff = self.perturbation[label] - image
-        # print(self.model(image.unsqueeze(0)))
-        image = image + (1 - rate) * diff
-        image = image / torch.max(image)
-        output = self.model(image.unsqueeze(0))
+    def evaluate(self):
+        output = self.perturbation.to(self.device)
+        output = self.model(output)
         pre = torch.max(output, dim=1)[1]
         print(output)
         print(pre)
-        plt.imshow(image.detach().clone().squeeze().numpy(), cmap='binary')
-        plt.show()
-        return image
+
+    def __call__(self, *args, **kwargs):
+        pass
 
 
 if __name__ == '__main__':
-
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     root = 'E:/ljq/data'
     batch_size = 4
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
-    root = './log/cw/model3-1e1-0'
-    batch_size = 128
-    adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=False)
+    # root = './log/cw/model3-1e1-0'
+    # batch_size = 128
+    # adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=False)
 
     model = Model3()
     log_path = './log'
-    load_model(model, log_path, 'model3-cw-1e1-0')
+    load_model(model, log_path, 'model3')
     model = model.eval()
     model = model.to(device)
     print(model)
@@ -175,13 +168,13 @@ if __name__ == '__main__':
     #     print(model(diff.unsqueeze(0)))
 
     adversary = MyAttack(model, eps=0.4, dataset=train_dataset)
-    count = 0
-    for idx, (img, label) in enumerate(train_dataset):
-        if count == 2:
-            break
-        if label == 5:
-            count += 1
-            adversary(train_dataset[idx][0], 5, rate=0.8)
+    # count = 0
+    # for idx, (img, label) in enumerate(train_dataset):
+    #     if count == 10:
+    #         break
+    #     if label != -1:
+    #         count += 1
+    #         adversary(train_dataset[idx][0], 5, rate=0.8)
 
 
 

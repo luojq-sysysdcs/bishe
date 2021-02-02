@@ -8,6 +8,8 @@
 
 import torch
 import os
+from matplotlib import pyplot as plt
+import numpy as np
 
 
 def train(model, dataloader, loss_func, optimizer, device):
@@ -94,7 +96,10 @@ def load_model(model, path, name):
     model.load_state_dict(state_dict)
     print('model loaded successfully!')
 
-
+def show(img):
+    npimg = img.numpy()
+    plt.imshow(np.transpose(npimg, (1, 2, 0)), interpolation='nearest')
+    plt.show()
 
 
 

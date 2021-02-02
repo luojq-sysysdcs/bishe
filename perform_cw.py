@@ -6,13 +6,9 @@
 # @File    : perform_cw.py
 # @Software: PyCharm
 
-import torch
 import torchvision
-from SimpleModel import *
 from utils import *
-from FGSM import FGSM
 from CW import CW
-import numpy as np
 from GenerateData import *
 from matplotlib import pyplot as plt
 import os
@@ -22,7 +18,7 @@ import time
 
 def show(img):
     npimg = img.numpy()
-    plt.imshow(np.transpose(npimg, (1,2,0)), interpolation='nearest')
+    plt.imshow(np.transpose(npimg, (1, 2, 0)), interpolation='nearest')
     plt.show()
 
 if __name__ == '__main__':
@@ -51,7 +47,7 @@ if __name__ == '__main__':
 
     index = 0
     true_labels = []
-    root = './log/cw/model3-1e1-0'
+    root = './log/cw/model4-1e1-0'
     if not os.path.exists(root):
         os.makedirs(root)
 
@@ -84,19 +80,20 @@ if __name__ == '__main__':
                     img = Image.fromarray(img)
                     img = img.convert('L')
                     p = os.path.join(root, str(index + j), str(adv_labels[:, i][j].item()) + '.jpg')
-                    img.save(p)
-            if idx < 10:
-                img = torchvision.utils.make_grid(
-                    torch.cat([images, adv_images], dim=0), nrow=len(labels), padding=2, pad_value=1)
+                    # img.save(p)
+            if idx < 2:
+                img = torch.cat([images, adv_images], dim=1)
+                img = img.reshape((-1, 1, *img.shape[-2:]))
+                img = torchvision.utils.make_grid(img, nrow=10, padding=2, pad_value=1)
                 show(img)
             t1 = time.time()
             print('time used: %f' % (t1 - t0))
         index += len(labels)
 
 
-        if idx % 5 == 0:
+        if idx % 1 == 0:
             print('success rate : %f' % (count / (9 * (idx + 1) * batch_size)))
-    np.savetxt(os.path.join(root, 'labels.txt'), true_labels, fmt="%d")
+    # np.savetxt(os.path.join(root, 'labels.txt'), true_labels, fmt="%d")
 
 
 

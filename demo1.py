@@ -6,38 +6,36 @@
 # @File    : demo1.py
 # @Software: PyCharm
 
-import torch
-import torchvision
-from torch import nn
-from torchvision import datasets, transforms
-from matplotlib import pyplot as plt
-from torch.utils.data import DataLoader
-from torch import optim
-from SimpleModel import *
-from utils import *
 from GenerateData import *
-import sys
-
 
 if __name__ == "__main__":
     root = 'E:/ljq/data'
     train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True, shuffle=True, shuffle_label=False)
     test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False, shuffle_label=False)
 
-    batch_size = 128
-    root = './log/cw/model3-1e1-0'
-    adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=True)
+    # batch_size = 128
+    # # root = './log/cw/model3-1e1-0'
+    # root = './log/pgd/model3-0.3'
+    # adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=True)
 
-    model = Model3()
-    lr = 1e-2
-    epoch = 20
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    loss_func = nn.CrossEntropyLoss()
-    device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
-    print(model)
-    fit(model, adversarial_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
-        save_path='./log', name='model3-cw-1e1-0')
+    # model = Model3()
+    # # load_model(model, './log', 'model4')
+    # lr = 1e-2
+    # epoch = 20
+    # optimizer = optim.Adam(model.parameters(), lr=lr)
+    # loss_func = nn.CrossEntropyLoss()
+    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # print(model)
+    # fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
+    #     save_path='./log/cifar/model', name='model3')
 
+    # model = Model3()
+    # log_path = './log'
+    # load_model(model, log_path, 'model3-cw-1e1-0')
+    # model = model.eval()
+    # model = model.to(device)
+    # loss_log, acc_log = evaluate(model, test_dataloader, loss_func, device, logger=None)
+    # print('loss:%.3f, accuracy:%.3f' % (loss_log.mean().item(), acc_log.mean().item()))
     # save_model(model, log_path, 'conv_model')
 
     # imagenet = torchvision.datasets.ImageNet(root=root, download=True, split='train')

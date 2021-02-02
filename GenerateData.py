@@ -40,9 +40,12 @@ def make_dataset(path):
             for r, _, fnames in os.walk(os.path.join(path, dir)):
                 random.shuffle(fnames) # pay attention
                 for fname in fnames:
+                    if not fname.split('.')[0].isdigit():
+                        continue
                     p = os.path.join(r, fname)
                     if is_image_file(p):
                         if label == int(fname.split('.')[0]):
+                            print(idx, label)
                             raise ValueError
                         item = p, label, int(fname.split('.')[0])
                         instances.append(item)
@@ -216,9 +219,9 @@ def generate_data(root, name, train=True, transform=None, batch_size=None, shuff
 #     def __init__(self):
 
 if __name__ == '__main__':
-    root = 'E:\ljq\data'
+    root = 'E:/ljq/data'
     batch_size = 64
-    train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True,
+    train_dataset, train_dataloader = generate_data(root, 'CIFAR', train=True,
                                                     batch_size=batch_size, shuffle=False, shuffle_label=True)
 
 

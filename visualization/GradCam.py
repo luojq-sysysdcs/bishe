@@ -6,17 +6,13 @@
 # @File    : GradCam.py
 # @Software: PyCharm
 
-from PIL import Image
-import numpy as np
-import torch
 import cv2
 import sys
 sys.path.append("..")
-from Simple_model import *
 from GenerateData import *
 from utils import *
 from matplotlib import pyplot as plt
-
+import torchvision
 
 class ModelOutputs():
     """ Class for making a forward pass, and getting:
@@ -138,7 +134,10 @@ def show_cam_on_image(img, mask):
     return np.uint8(255 * cam)
 
 
-
+def show(img):
+    npimg = img.numpy()
+    plt.imshow(np.transpose(npimg, (1,2,0)), interpolation='nearest')
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -147,7 +146,7 @@ if __name__ == '__main__':
     train_dataset, train_dataloader = \
         generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False, shuffle_label=False)
 
-    root = '../log/PGD-model4-0.3'
+    root = '../log/cw/model3-1e1-0'
     adversarial_dataset, adversarial_dataloader = \
         get_adversarial_data(root, batch_size=batch_size, shuffle=False)
 
@@ -173,21 +172,35 @@ if __name__ == '__main__':
     # target_layer = ['feature', '2']
 
     gradcam = GradCam(model, target_layer)
+    imgs = []
+
+    count = 0
+    for idx, (image, true_label, label) in enumerate(adversarial_dataset):
+        if count == 5:
+            break
+        if true_label == 5:
+            print(idx)
+            count += 1
+            img = gradcam(image.unsqueeze(0))
+            imgs.append(torch.from_numpy(img).unsqueeze(0))
+            # plt.imshow(img)
+            # plt.show()
 
     count = 0
     for idx, (image, label) in enumerate(train_dataset):
-        if count == 10:
+        if count == 5:
             break
         if label == 5:
             print(idx)
             count += 1
-            cam = gradcam(image.unsqueeze(0))
-            plt.imshow(cam)
-            plt.show()
+            img2 = gradcam(image.unsqueeze(0))
+            imgs.append(torch.from_numpy(img2).unsqueeze(0))
+            # plt.imshow(img2)
+            # plt.show()
 
 
-
-
+    img = torchvision.utils.make_grid(imgs, nrow=5, padding=2)
+    show(img)
 
 
 

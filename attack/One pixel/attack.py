@@ -5,45 +5,16 @@
 # @Email   : luojq_sysusdcs@163.com
 # @File    : attack.py
 # @Software: PyCharm
-import os
-import sys
-import numpy as np
-
 import argparse
+import sys
 
-from matplotlib import pyplot as plt
-
-import torch
-import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
-import torch.backends.cudnn as cudnn
-
-import torchvision
-import torchvision.transforms as transforms
-# from utils import progress_bar
-from torch.autograd import Variable
 
 from differential_evolution import differential_evolution
-
-sys.path.append("..")
-from Simple_model import *
-from GenerateData import *
 from utils import *
-# from models import *
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
-parser = argparse.ArgumentParser(description='One pixel attack with PyTorch')
-parser.add_argument('--model', default='vgg16', help='The target model')
-parser.add_argument('--pixels', default=1, type=int, help='The number of pixels that can be perturbed.')
-parser.add_argument('--maxiter', default=100, type=int, help='The maximum number of iteration in the DE algorithm.')
-parser.add_argument('--popsize', default=400, type=int, help='The number of adverisal examples in each iteration.')
-parser.add_argument('--samples', default=100, type=int, help='The number of image samples to attack.')
-parser.add_argument('--targeted', default=False, help='Set this switch to test for targeted attacks.')
-parser.add_argument('--save', default='./results/results.pkl', help='Save location for the results with pickle.')
-parser.add_argument('--verbose', default=False, help='Print out additional information every iteration.')
-parser.add_argument('--log', default=os.path.join(os.path.dirname(os.getcwd()), 'log', 'one pixel'))
-args = parser.parse_args()
+# from utils import progress_bar
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
 def perturb_image(xs, img):
@@ -159,8 +130,9 @@ def attack_all(net, loader, pixels=1, targeted=False, maxiter=75, popsize=400, v
                 if (target_calss == target[0]):
                     continue
 
-            flag, x, attack_image, predicted_class = attack(input, target[0], net, target_calss, pixels=pixels, maxiter=maxiter, popsize=popsize,
-                             verbose=verbose)
+            flag, x, attack_image, predicted_class = attack(input, target[0], net, target_calss, pixels=pixels,
+                                                            maxiter=maxiter, popsize=popsize,
+                                                            verbose=verbose)
 
             success += flag
             if (targeted):
@@ -183,6 +155,17 @@ def attack_all(net, loader, pixels=1, targeted=False, maxiter=75, popsize=400, v
 
 
 def main():
+    parser = argparse.ArgumentParser(description='One pixel attack with PyTorch')
+    parser.add_argument('--model', default='vgg16', help='The target model')
+    parser.add_argument('--pixels', default=1, type=int, help='The number of pixels that can be perturbed.')
+    parser.add_argument('--maxiter', default=100, type=int, help='The maximum number of iteration in the DE algorithm.')
+    parser.add_argument('--popsize', default=400, type=int, help='The number of adverisal examples in each iteration.')
+    parser.add_argument('--samples', default=100, type=int, help='The number of image samples to attack.')
+    parser.add_argument('--targeted', default=False, help='Set this switch to test for targeted attacks.')
+    parser.add_argument('--save', default='./results/results.pkl', help='Save location for the results with pickle.')
+    parser.add_argument('--verbose', default=False, help='Print out additional information every iteration.')
+    parser.add_argument('--log', default=os.path.join(os.path.dirname(os.getcwd()), 'log', 'one pixel'))
+    args = parser.parse_args()
     print("==> Loading data and model...")
 
     # tranfrom_test = transforms.Compose([
@@ -199,7 +182,6 @@ def main():
     # net.cuda()
     # cudnn.benchmark = True
 
-
     if 'win' in sys.platform:
         root = 'E:\ljq\data'
     else:
@@ -209,9 +191,9 @@ def main():
 
     model = ConvModel()
     if 'win' in sys.platform:
-        log_path = '..\\log'
+        log_path = '../../log'
     else:
-        log_path = '../log'
+        log_path = '../../log'
     load_model(model, log_path, 'conv_model')
     print(model)
 
@@ -224,4 +206,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    pass
