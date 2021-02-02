@@ -7,6 +7,9 @@
 # @Software: PyCharm
 
 from GenerateData import *
+from models.SimpleModel import *
+import torch
+from torch import optim
 
 if __name__ == "__main__":
     root = 'E:/ljq/data'
@@ -18,16 +21,16 @@ if __name__ == "__main__":
     # root = './log/pgd/model3-0.3'
     # adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=True)
 
-    # model = Model3()
-    # # load_model(model, './log', 'model4')
-    # lr = 1e-2
-    # epoch = 20
-    # optimizer = optim.Adam(model.parameters(), lr=lr)
-    # loss_func = nn.CrossEntropyLoss()
-    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    # print(model)
-    # fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
-    #     save_path='./log/cifar/model', name='model3')
+    model = resnet_mnist()
+    # load_model(model, './log', 'model4')
+    lr = 1e-2
+    epoch = 20
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    loss_func = nn.CrossEntropyLoss()
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(model)
+    fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
+        save_path='./log/cifar/model', name='model3')
 
     # model = Model3()
     # log_path = './log'
