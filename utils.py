@@ -96,9 +96,11 @@ def load_model(model, path, name):
     model.load_state_dict(state_dict)
     print('model loaded successfully!')
 
-def show(img):
+def show(img, path=None):
     npimg = img.numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)), interpolation='nearest')
+    if path is not None:
+        plt.savefig(path)
     plt.show()
 
 

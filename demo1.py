@@ -13,7 +13,7 @@ from torch import optim
 
 if __name__ == "__main__":
     root = 'E:/ljq/data'
-    batch_size = 2
+    batch_size = 64
     train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True, shuffle=True, shuffle_label=False)
     test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False, shuffle_label=False)
 
@@ -22,16 +22,16 @@ if __name__ == "__main__":
     # root = './log/pgd/model3-0.3'
     # adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=True)
 
-    model = resnet_mnist()
+    model = vgg_mnist()
     # load_model(model, './log', 'model4')
-    lr = 1e-2
-    epoch = 20
+    lr = 1e-4
+    epoch = 10
     optimizer = optim.Adam(model.parameters(), lr=lr)
     loss_func = nn.CrossEntropyLoss()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(model)
     fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
-        save_path='./log/mnist/model', name='resnet')
+        save_path='./log/mnist/model', name='vgg')
 
     # model = Model3()
     # log_path = './log'

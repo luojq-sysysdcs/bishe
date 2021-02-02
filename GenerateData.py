@@ -222,7 +222,7 @@ if __name__ == '__main__':
     root = 'E:/ljq/data'
     batch_size = 64
     train_dataset, train_dataloader = generate_data(root, 'CIFAR', train=True,
-                                                    batch_size=batch_size, shuffle=False, shuffle_label=True)
+                                                    batch_size=batch_size, shuffle=False, shuffle_label=False)
 
 
     # root = './log/PGD'

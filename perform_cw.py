@@ -6,48 +6,34 @@
 # @File    : perform_cw.py
 # @Software: PyCharm
 
-import torchvision
-from utils import *
-from CW import CW
-from GenerateData import *
-from matplotlib import pyplot as plt
-import os
-from PIL import Image
 import time
-
-
-def show(img):
-    npimg = img.numpy()
-    plt.imshow(np.transpose(npimg, (1, 2, 0)), interpolation='nearest')
-    plt.show()
+import torchvision
+from GenerateData import *
+from attack.CW import *
+from models.SimpleModel import *
 
 if __name__ == '__main__':
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     root = 'E:/ljq/data'
     batch_size = 50
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
-    model = Model3()
+    model = resnet_mnist()
     model = model.eval()
-    log_path = './log'
-    load_model(model, log_path, 'model3')
+    log_path = './log/mnist/model'
+    load_model(model, log_path, 'resnet')
     model = model.to(device)
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
     print(model)
 
-    # model = SM()
-    # log_path = '.\\log'
-    # load_model(model, log_path, 'simple_model')
-    # print(model)
-
     adversary = CW(model, c=1e1, kappa=0, steps=500, lr=1e-1, use_cuda=torch.cuda.is_available())
 
     index = 0
     true_labels = []
-    root = './log/cw/model4-1e1-0'
+    root = './log/mnist/cw/resent'
     if not os.path.exists(root):
         os.makedirs(root)
 
@@ -80,23 +66,16 @@ if __name__ == '__main__':
                     img = Image.fromarray(img)
                     img = img.convert('L')
                     p = os.path.join(root, str(index + j), str(adv_labels[:, i][j].item()) + '.jpg')
-                    # img.save(p)
+                    img.save(p)
             if idx < 2:
                 img = torch.cat([images, adv_images], dim=1)
                 img = img.reshape((-1, 1, *img.shape[-2:]))
                 img = torchvision.utils.make_grid(img, nrow=10, padding=2, pad_value=1)
-                show(img)
+                show(img, os.path.join(root, str(idx) + '-' + str(i)))
             t1 = time.time()
             print('time used: %f' % (t1 - t0))
         index += len(labels)
 
-
         if idx % 1 == 0:
             print('success rate : %f' % (count / (9 * (idx + 1) * batch_size)))
-    # np.savetxt(os.path.join(root, 'labels.txt'), true_labels, fmt="%d")
-
-
-
-
-
-
+    np.savetxt(os.path.join(root, 'labels.txt'), true_labels, fmt="%d")
