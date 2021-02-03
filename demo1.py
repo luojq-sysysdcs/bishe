@@ -17,10 +17,9 @@ if __name__ == "__main__":
     train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True, shuffle=True, shuffle_label=False)
     test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False, shuffle_label=False)
 
-    # batch_size = 128
-    # # root = './log/cw/model3-1e1-0'
-    # root = './log/pgd/model3-0.3'
-    # adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=True)
+    batch_size = 128
+    root = './log/mnist/deepfool/vgg'
+    adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=True)
 
     model = vgg_mnist()
     # load_model(model, './log', 'model4')
@@ -30,8 +29,11 @@ if __name__ == "__main__":
     loss_func = nn.CrossEntropyLoss()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(model)
-    fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
-        save_path='./log/mnist/model', name='vgg')
+
+    loss_log, acc_log = evaluate(model, adversarial_dataloader, loss_func, device, logger=None)
+    print('loss:%.3f, accuracy:%.3f' % (loss_log.mean().item(), acc_log.mean().item()))
+    # fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
+    #     save_path='./log/mnist/model', name='vgg')
 
     # model = Model3()
     # log_path = './log'

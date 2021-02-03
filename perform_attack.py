@@ -25,7 +25,7 @@ if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     root = 'E:/ljq/data'
-    batch_size = 20
+    batch_size = 50
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
     model = vgg_mnist()
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     # adversary = PGD(model, eps=0.2, alpha=1 / 255, steps=200, random_start=False)
     # adversary = CW(model, c=1e1, kappa=0, steps=500, lr=1e-1, use_cuda=torch.cuda.is_available())
     num_classes = 10
-    adversary = DeepFool(model, num_classes=num_classes, steps=100)
+    adversary = DeepFool(model, num_classes=num_classes, steps=200)
 
     root = './log/mnist/deepfool/vgg'
     if not os.path.exists(root):
@@ -94,8 +94,8 @@ if __name__ == '__main__':
                 print('success rate : %d / %d ( %f ) ' % (count, ((num_classes - 1) * (idx + 1) * batch_size),
                                                           count / ((num_classes - 1) * (idx + 1) * batch_size)))
             else:
-                print('success rate : %d / %d ( %f ) ' % (count, ((num_classes - 1) * (idx + 1) * batch_size),
-                                                          count / ((num_classes - 1) * (idx + 1) * batch_size)))
+                print('success rate : %d / %d ( %f ) ' % (count, ( (idx + 1) * batch_size),
+                                                          count / ((idx + 1) * batch_size)))
     np.savetxt(os.path.join(root, 'labels.txt'), true_labels, fmt="%d")
 
 # -----------------------------

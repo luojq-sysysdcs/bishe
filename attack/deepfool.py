@@ -14,7 +14,7 @@ import time
 
 
 class DeepFool(Attack):
-    def __init__(self, model, num_classes, steps=100):
+    def __init__(self, model, num_classes, steps=200):
         super(DeepFool, self).__init__('deepfool', model)
         self.steps = steps
         self.num_classes = num_classes
@@ -31,7 +31,7 @@ class DeepFool(Attack):
         success_count = 0
 
         for step in range(self.steps):
-            t0 = time.time()
+            # t0 = time.time()
 
             # output = self.model(images)
             # _, pred = torch.max(output, dim=1)
@@ -84,16 +84,17 @@ class DeepFool(Attack):
             # success[fail] = torch.ne(pred, fail_labels)
             images[fail] = fail_images.clone().detach()
 
-            output = self.model(images)
-            _, pred = torch.max(output, dim=1)
-            success = torch.ne(pred, labels)
+            with torch.no_grad():
+                output = self.model(images)
+                _, pred = torch.max(output, dim=1)
+                success = torch.ne(pred, labels)
 
             if torch.all(success):
                 print('attack succeed! stop early! step: %d' % step)
                 break
 
-            t1 = time.time()
-            print(step, t1 - t0)
+            # t1 = time.time()
+            # print(step, t1 - t0)
             # print(success)
             # print(torch.sum(success))
             # success_count = torch.sum(success)
