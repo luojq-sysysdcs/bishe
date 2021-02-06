@@ -43,11 +43,11 @@ def make_dataset(path):
                     if not fname.split('.')[0].isdigit():
                         continue
                     p = os.path.join(r, fname)
+                    adv_label = int(fname.split('.')[0])
                     if is_image_file(p):
-                        if label == int(fname.split('.')[0]):
-                            print(idx, label)
+                        if label == adv_label:
+                            print(idx, label, adv_label)
                             raise ValueError
-                        adv_label = int(fname.split('.')[0])
                         if label == 0:
                             continue
                         item = p, label, adv_label
@@ -193,28 +193,44 @@ def generate_data(root, name, train=True, transform=None, batch_size=None, shuff
     else:
         raise NotImplementedError
     if transform is None:
-        transform = transforms.Compose([transforms.ToTensor(),])
+        transform_train = transforms.Compose([transforms.ToTensor(),])
+        transform_test = transforms.Compose([transforms.ToTensor(),])
+    else:
+        transform_train = transform
+        transform_test = transform
+    if name == 'CIFAR':
+        transform_train = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),  # 先四周填充0，在吧图像随机裁剪成32*32
+            transforms.RandomHorizontalFlip(),  # 图像一半的概率翻转，一半的概率不翻转
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),  # R,G,B每层的归一化用到的均值和方差
+        ])
+
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ])
     if batch_size is None:
         batch_size = 64
     if train:
-        train_dataset = loader(root=root, train=True, download=True, transform=transform)
+        train_dataset = loader(root=root, train=True, download=True, transform=transform_train)
         if shuffle_label:
             print('train label shuffled!')
             torch.random.manual_seed(0)
             train_dataset.targets = torch.randint(0, 10, size=(len(train_dataset),))
         print('num of data:', len(train_dataset))
-        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=0)
+        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=4)
         print('num of batch:', len(train_dataloader))
         return train_dataset, train_dataloader
 
     else:
-        test_dataset = loader(root=root, train=False, download=True, transform=transform)
+        test_dataset = loader(root=root, train=False, download=True, transform=transform_test)
         print('num of data:', len((test_dataset)))
         if shuffle_label:
             print('test label shuffled!')
             torch.random.manual_seed(0)
             test_dataset.targets = torch.randint(0, 10, size=(len(test_dataset),))
-        test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+        test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
         print('num of batch', len(test_dataloader))
         return test_dataset, test_dataloader
 

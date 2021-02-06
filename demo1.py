@@ -12,33 +12,38 @@ import torch
 from torch import optim
 
 if __name__ == "__main__":
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     root = 'E:/ljq/data'
-    batch_size = 64
-    train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True, shuffle=True, shuffle_label=False)
-    test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False, shuffle_label=False)
+    batch_size = 128
+    train_dataset,  train_dataloader = generate_data(root, 'CIFAR', train=True, shuffle=True, shuffle_label=False)
+    test_dataset, test_dataloader = generate_data(root, 'CIFAR', train=False, shuffle_label=False)
 
-    batch_size = 64
-    root = './log/mnist/pgd/vgg-0.3'
-    adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=True)
+    # batch_size = 64
+    # root = './log/mnist/pgd/vgg-0.3'
+    # adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=True)
 
-    model = resnet_mnist()
-    load_model(model, './log/mnist/model', 'resnet-vgg-0')
+    model = resnet_cifar()
+    if torch.cuda.device_count() > 1:
+        model = nn.DataParallel(model)
+    load_model(model, './log/cifar/model', 'resnet')
     lr = 1e-4
-    epoch = 20
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    epoch = 50
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-6)
+    scheduler = None #optim.lr_scheduler.StepLR(optimizer, gamma=0.5, step_size=epoch//5)
     loss_func = nn.CrossEntropyLoss()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(model)
 
-    for i in range(10):
-        acc = cal_acc(model, test_dataloader, device, label=i)
-        print('accuracy: %f' % acc)
+    # for i in range(10):
+    #     acc = cal_acc(model, test_dataloader, device, label=i)
+    #     print('accuracy: %f' % acc)
 
     # loss_log, acc_log = evaluate(model, adversarial_dataloader, loss_func, device, logger=None)
     # print('loss:%.3f, accuracy:%.3f' % (loss_log.mean().item(), acc_log.mean().item()))
-    # fit(model, adversarial_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
-    #     save_path='./log/mnist/model', name='resnet-vgg-0')
+    fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
+        scheduler=scheduler,
+        save_path='./log/cifar/model',
+        name='resnet')
 
     # model = Model3()
     # log_path = './log'

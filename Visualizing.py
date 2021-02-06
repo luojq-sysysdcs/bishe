@@ -32,16 +32,11 @@ class FeatureExtractor():
                     self.x = child(self.x)
                     self.target_activations.append(self.x)
                 else:
-                    self.extract(child)
+                    self.extractor(child)
             else:
-                if "avgpool" in name.lower() or 'maxpool' in name.lower():
                     self.x = child(self.x)
-                    self.x = self.x.view(self.x.size(0), -1)
-                elif 'fc' in name.lower() or 'linear' in name.lower():
-                    self.x = self.x.view(self.x.size(0), -1)
-                    self.x = child(self.x)
-                else:
-                    self.x = child(self.x)
+            if "avgpool" in name.lower() or 'maxpool' in name.lower():
+                self.x = self.x.view(self.x.size(0), -1)
 
     def __call__(self, model, x, target_layers):
         self.index = 0

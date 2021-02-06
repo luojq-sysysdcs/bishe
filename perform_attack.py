@@ -22,36 +22,39 @@ import shutil
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 if __name__ == '__main__':
-    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '2'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     root = 'E:/ljq/data'
     batch_size = 50
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
-    model = resnet_mnist()
+    model = vgg_mnist()
     log_path = './log/mnist/model'
-    load_model(model, log_path, 'resnet')
+    load_model(model, log_path, 'vgg')
     model = model.eval().to(device)
     print(model)
 
     # adversary = FGSM(model, eps=0.15)
     # adversary = PGD(model, eps=0.3, alpha=2 / 255, steps=50, random_start=False)
-    adversary = CW(model, c=1e1, kappa=0, steps=100, lr=1e-1, use_cuda=torch.cuda.is_available())
+    # adversary = CW(model, c=1e1, kappa=0, steps=50, lr=1e-1, use_cuda=torch.cuda.is_available())
     num_classes = 10
-    # adversary = DeepFool(model, num_classes=num_classes, steps=200)
+    adversary = DeepFool(model, num_classes=num_classes, steps=50)
 
-    root = './log/mnist/cw/resnet-40'
-    # shutil.rmtree(root)
+    root = './log/mnist/deepfool/vgg-50'
+    if os.path.exists(root):
+        shutil.rmtree(root)
     if not os.path.exists(root):
         os.makedirs(root)
 
     count = 0
     index = 0
-    target_attack = True
+    target_attack = False
     true_labels = []
     for idx, (images, labels) in enumerate(train_dataloader):
-        if idx * batch_size >= 1000:
+        # if idx * batch_size < 1000:
+        #     continue
+        if idx * batch_size >= 9000:
             break
         true_labels += list(labels)
         if target_attack:

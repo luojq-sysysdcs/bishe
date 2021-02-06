@@ -10,6 +10,7 @@ import torch
 import os
 from matplotlib import pyplot as plt
 import numpy as np
+import time
 
 
 def train(model, dataloader, loss_func, optimizer, device):
@@ -92,14 +93,20 @@ def cal_acc(model, dataloader, device, label=None):
 
 
 def fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epochs, device,
-        logger=None, save_path=None, name=None):
+        logger=None, save_path=None, name=None, scheduler=None):
     best_acc = 0
     for epoch in range(epochs):
         print('epoch:%3d' % epoch)
+        t0 = time.time()
         train(model, train_dataloader, loss_func, optimizer, device)
+        print('used time: %d' % (time.time() - t0))
+        if scheduler is not None:
+            scheduler.step()
+            print("lr：%f" % (optimizer.param_groups[0]['lr']))
         print()
 
-        if (epoch + 1) % (epochs // 10) == 0:
+        freq = min(epochs, 50)
+        if (epoch + 1) % (epochs // freq) == 0:
             print('evaluating...')
             loss_log, acc_log = evaluate(model, test_dataloader, loss_func,device)
             curr_acc = acc_log.mean().item()
@@ -113,7 +120,7 @@ def fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epochs, 
 def save_model(model, path, name):
     if not os.path.exists(path):
         print('Path not exists! Creating')
-        os.mkdir(path)
+        os.makedirs(path)
     torch.save(model.state_dict(), os.path.join(path, name))
     print('model saved successfully!')
 

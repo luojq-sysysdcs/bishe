@@ -10,6 +10,7 @@ import torch
 from torch import nn
 from torchsummary import summary
 import torchvision.models as models
+from models import resnet
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 import numpy as np
@@ -123,6 +124,7 @@ class ConvModel2(nn.Module):
 class resnet_mnist(nn.Module):
     def __init__(self, in_channel=1):
         super(resnet_mnist, self).__init__()
+        self.name = 'resnet-mnist'
         self.conv1 = nn.Conv2d(in_channel, 64, (3, 3), stride=1, padding=1)
         resnet18 = models.resnet18(pretrained=True)
         self.extract = nn.Sequential(*list(resnet18.children())[1:-4])
@@ -180,6 +182,7 @@ class vgg(nn.Module):
 class vgg_mnist(vgg):
     def __init__(self, num_classes=10, init_weights=True):
         super(vgg_mnist, self).__init__()
+        self.name = 'vgg-mnist'
         cfg = [64, 64, 'M', 64, 64, 'M', 128, 128, 128, 128]
         self.features = self.make_layers(cfg, in_channels=1)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -190,11 +193,49 @@ class vgg_mnist(vgg):
             self._initialize_weights()
 
 
+class vgg_cifar(vgg):
+    def __init__(self, num_classes=10, init_weights=True):
+        super(vgg_cifar, self).__init__()
+        self.name = 'vgg-cifar'
+        cfg = [64, 64, 64, 64, 'M', 128, 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512]
+        self.features = self.make_layers(cfg, in_channels=3)
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Sequential(
+            nn.Linear(512, num_classes),
+        )
+        if init_weights:
+            self._initialize_weights()
+
+
+class resnet_cifar(nn.Module):
+    def __init__(self, in_channel=3):
+        super(resnet_cifar, self).__init__()
+        self.name = 'resnet-cifar'
+        # self.conv1 = nn.Conv2d(in_channel, 64, (3, 3), stride=1, padding=1)
+        resnet18 = resnet.resnet18(pretrained=False, num_classes=10).cuda()
+        self.model = resnet18
+        # self.extract = nn.Sequential(*list(resnet18.children())[1:-3])
+        # self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        # self.fc = nn.Linear(256, 10)
+
+    def forward(self, x):
+        x = self.model(x)
+        # x = self.conv1(x)
+        # x = self.extract(x)
+        # x = self.avgpool(x)
+        # x = x.view(-1, 256)
+        # x = self.fc(x)
+        return x
+
+
+
 if __name__ == '__main__':
-    model = vgg_mnist().cuda()
-    summary(model, (1, 28, 28))
-    model = resnet_mnist().cuda()
-    summary(model, (1, 28, 28))
+    # model = resnet.resnet18(pretrained=False, num_classes=10).cuda()
+    model = vgg_cifar().cuda()
+    summary(model, (3, 32, 32))
+    print(model)
+    # model = resnet_mnist().cuda()
+    # summary(model, (1, 28, 28))
     # print(list(list(model.extract.children())[-1].children())[-1])
 
     #

@@ -5,7 +5,7 @@
 # @Email   : luojq_sysusdcs@163.com
 # @File    : TSNE.py
 # @Software: PyCharm
-from time import time
+import time
 from utils import *
 from GenerateData import *
 import os
@@ -33,8 +33,8 @@ def plot_embedding(data, label, title):
     fig = plt.figure()
     ax = plt.subplot(111)
     for i in range(data.shape[0]):
-        plt.text(data[i, 0], data[i, 1], str(label[i]),
-                 color=plt.cm.Set1(abs(label[i]) / 10.),
+        plt.text(data[i, 0], data[i, 1], str(label[i] if label[i] < 10 else label[i] - 10),
+                 color=plt.cm.Set1(label[i] / 20.),
                  fontdict={'weight': 'bold', 'size': 9})
     plt.xticks([])
     plt.yticks([])
@@ -47,11 +47,11 @@ def main():
     print(len(data[0]))
     print('Computing t-SNE embedding')
     tsne = TSNE(n_components=2, init='pca', random_state=0)
-    t0 = time()
+    t0 = time.time()
     result = tsne.fit_transform(data)
     fig = plot_embedding(result, label,
                          't-SNE embedding of the digits (time %.2fs)'
-                         % (time() - t0))
+                         % (time.time() - t0))
     fig.show()
 
 
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
     # root = './log/PGD-model3-0.2'
-    root = './log/mnist/pgd/resnet-0.3'
+    root = './log/mnist/deepfool/resnet-20'
     adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=False)
 
     # model = SM()
@@ -207,12 +207,17 @@ if __name__ == '__main__':
 
     tsne = TSNE(n_components=2, init='pca', random_state=0)
     print('Computing t-SNE embedding')
-    t0 = time()
+    t0 = time.time()
     result = tsne.fit_transform(np.concatenate((adversarial_features, true_features), axis=0))
-    fig = plot_embedding(result, np.concatenate((-adversarial_labels, true_labels), axis=0),
-                         't-SNE embedding of the digits (time %.2fs)'
-                         % (time() - t0))
-    fig.show()
+    t1 = time.time()
+    print('used time: %d' % (t1 - t0))
+    file_name = '-'.join((root + '--' + model.name).split('/')[-2:])
+    fig = plot_embedding(result, np.concatenate((adversarial_labels + 10, true_labels), axis=0), file_name)
+    tsne_path = './log/mnist/tsne'
+    if not os.path.exists(tsne_path):
+        os.makedirs(tsne_path)
+    plt.savefig(os.path.join('./log/mnist/tsne', file_name))
+    plt.show()
 # ------------------------------------------------
 #     root = 'E:\ljq\data'
 #     batch_size = 1
