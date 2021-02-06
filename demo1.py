@@ -12,28 +12,33 @@ import torch
 from torch import optim
 
 if __name__ == "__main__":
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     root = 'E:/ljq/data'
     batch_size = 64
     train_dataset,  train_dataloader = generate_data(root, 'MNIST', train=True, shuffle=True, shuffle_label=False)
     test_dataset, test_dataloader = generate_data(root, 'MNIST', train=False, shuffle_label=False)
 
-    batch_size = 128
-    root = './log/mnist/deepfool/vgg'
+    batch_size = 64
+    root = './log/mnist/pgd/vgg-0.3'
     adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=True)
 
-    model = vgg_mnist()
-    # load_model(model, './log', 'model4')
+    model = resnet_mnist()
+    load_model(model, './log/mnist/model', 'resnet-vgg-0')
     lr = 1e-4
-    epoch = 10
+    epoch = 20
     optimizer = optim.Adam(model.parameters(), lr=lr)
     loss_func = nn.CrossEntropyLoss()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(model)
 
-    loss_log, acc_log = evaluate(model, adversarial_dataloader, loss_func, device, logger=None)
-    print('loss:%.3f, accuracy:%.3f' % (loss_log.mean().item(), acc_log.mean().item()))
-    # fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
-    #     save_path='./log/mnist/model', name='vgg')
+    for i in range(10):
+        acc = cal_acc(model, test_dataloader, device, label=i)
+        print('accuracy: %f' % acc)
+
+    # loss_log, acc_log = evaluate(model, adversarial_dataloader, loss_func, device, logger=None)
+    # print('loss:%.3f, accuracy:%.3f' % (loss_log.mean().item(), acc_log.mean().item()))
+    # fit(model, adversarial_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
+    #     save_path='./log/mnist/model', name='resnet-vgg-0')
 
     # model = Model3()
     # log_path = './log'

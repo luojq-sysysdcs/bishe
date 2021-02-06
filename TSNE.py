@@ -9,6 +9,7 @@ from time import time
 from utils import *
 from GenerateData import *
 import os
+from models.SimpleModel import *
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 from sklearn import datasets
@@ -61,7 +62,7 @@ if __name__ == '__main__':
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
     # root = './log/PGD-model3-0.2'
-    root = './log/cw/model3-1e1-0'
+    root = './log/mnist/pgd/resnet-0.3'
     adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=False)
 
     # model = SM()
@@ -71,9 +72,9 @@ if __name__ == '__main__':
     # model = model.eval()
     # print(model)
 
-    model = Model3()
-    log_path = './log'
-    load_model(model, log_path, 'model3')
+    model = resnet_mnist()
+    log_path = './log/mnist/model'
+    load_model(model, log_path, 'resnet')
     model = model.eval()
     print(model)
 

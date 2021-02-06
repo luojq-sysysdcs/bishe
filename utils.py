@@ -46,7 +46,7 @@ def evaluate(model, dataloader, loss_func, device, logger=None):
     with torch.no_grad():
         for idx, sample in enumerate(dataloader):
             if len(sample) == 3:
-                images, _, labels = sample
+                images, labels, _ = sample
             elif len(sample) == 2:
                 images, labels = sample
             else:
@@ -61,6 +61,34 @@ def evaluate(model, dataloader, loss_func, device, logger=None):
             loss_log[idx] = loss
 
         return loss_log, acc_log
+
+
+def cal_acc(model, dataloader, device, label=None):
+    count = 0
+    acc = 0
+    model = model.eval().to(device)
+
+    with torch.no_grad():
+        for sample in dataloader:
+            if len(sample) == 3:
+                imgs, labels, _ = sample
+            elif len(sample) == 2:
+                imgs, labels = sample
+            else:
+                raise ValueError
+            if label is not None:
+                wanted = (labels == label)
+                if not torch.any(wanted):
+                    continue
+                imgs = imgs[wanted]
+                labels = labels[wanted]
+            imgs = imgs.to(device)
+            labels = labels.to(device)
+            _, pre = torch.max(model(imgs), dim=1)
+            count += imgs.shape[0]
+            acc += torch.sum((pre==labels).int())
+    print(acc, count)
+    return acc / count
 
 
 def fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epochs, device,

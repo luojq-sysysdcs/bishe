@@ -47,7 +47,10 @@ def make_dataset(path):
                         if label == int(fname.split('.')[0]):
                             print(idx, label)
                             raise ValueError
-                        item = p, label, int(fname.split('.')[0])
+                        adv_label = int(fname.split('.')[0])
+                        if label == 0:
+                            continue
+                        item = p, label, adv_label
                         instances.append(item)
                     # break # only load one adversarial image for one clean image
                 break

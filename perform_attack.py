@@ -17,6 +17,7 @@ import time
 from models.SimpleModel import *
 from attack import *
 import torch
+import shutil
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -28,25 +29,26 @@ if __name__ == '__main__':
     batch_size = 50
     train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
 
-    model = vgg_mnist()
+    model = resnet_mnist()
     log_path = './log/mnist/model'
-    load_model(model, log_path, 'vgg')
+    load_model(model, log_path, 'resnet')
     model = model.eval().to(device)
     print(model)
 
     # adversary = FGSM(model, eps=0.15)
-    # adversary = PGD(model, eps=0.2, alpha=1 / 255, steps=200, random_start=False)
-    # adversary = CW(model, c=1e1, kappa=0, steps=500, lr=1e-1, use_cuda=torch.cuda.is_available())
+    # adversary = PGD(model, eps=0.3, alpha=2 / 255, steps=50, random_start=False)
+    adversary = CW(model, c=1e1, kappa=0, steps=100, lr=1e-1, use_cuda=torch.cuda.is_available())
     num_classes = 10
-    adversary = DeepFool(model, num_classes=num_classes, steps=200)
+    # adversary = DeepFool(model, num_classes=num_classes, steps=200)
 
-    root = './log/mnist/deepfool/vgg'
+    root = './log/mnist/cw/resnet-40'
+    # shutil.rmtree(root)
     if not os.path.exists(root):
         os.makedirs(root)
 
     count = 0
     index = 0
-    target_attack = False
+    target_attack = True
     true_labels = []
     for idx, (images, labels) in enumerate(train_dataloader):
         if idx * batch_size >= 1000:

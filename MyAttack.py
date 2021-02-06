@@ -145,9 +145,9 @@ if __name__ == '__main__':
     # batch_size = 128
     # adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=False)
 
-    model = Model3()
-    log_path = './log'
-    load_model(model, log_path, 'model3')
+    model = resnet_mnist()
+    log_path = './log/mnist/model'
+    load_model(model, log_path, 'resnet')
     model = model.eval()
     model = model.to(device)
     print(model)

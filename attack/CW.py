@@ -74,14 +74,14 @@ class CW(Attack):
             best_adv_images = mask * adv_images.detach() + (1 - mask) * best_adv_images
 
             # early stop if loss does not converge
-            if step % (self.steps // 50) == 0:
+            if step % (self.steps // 10) == 0:
                 if loss.item() > prev_cost and torch.all(success):
                     print('early stop: %d !' % (step + 1))
                     break
                 else:
                     prev_cost = loss.item()
         print(success)
-        return best_adv_images, success, best_l2
+        return best_adv_images, success
 
     def f(self, outputs, labels):
         onehot_labels = torch.eye(len(outputs[0]))[labels].to(self.device)
