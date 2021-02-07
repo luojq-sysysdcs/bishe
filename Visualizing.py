@@ -13,7 +13,6 @@ from matplotlib import pyplot as plt
 import os
 import numpy as np
 import sys
-print(sys.platform)
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 

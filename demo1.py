@@ -12,20 +12,19 @@ import torch
 from torch import optim
 
 if __name__ == "__main__":
-    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0, 2'
     root = 'E:/ljq/data'
+    dataclass = CIFAR(root)
     batch_size = 128
-    train_dataset,  train_dataloader = generate_data(root, 'CIFAR', train=True, shuffle=True, shuffle_label=False)
-    test_dataset, test_dataloader = generate_data(root, 'CIFAR', train=False, shuffle_label=False)
+    train_dataset, train_dataloader = \
+        dataclass.get_dataloader(train=True, batch_size=batch_size, shuffle=True, num_worker=8, pin_memory=True)
+    test_dataset, test_dataloader = \
+        dataclass.get_dataloader(train=False, batch_size=batch_size, shuffle=False, num_worker=8)
 
-    # batch_size = 64
-    # root = './log/mnist/pgd/vgg-0.3'
-    # adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=True)
-
-    model = resnet_cifar()
+    model = vgg_cifar()
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)
-    load_model(model, './log/cifar/model', 'resnet')
+    # load_model(model, './log/cifar/model', 'resnet')
     lr = 1e-4
     epoch = 50
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-6)
@@ -40,10 +39,11 @@ if __name__ == "__main__":
 
     # loss_log, acc_log = evaluate(model, adversarial_dataloader, loss_func, device, logger=None)
     # print('loss:%.3f, accuracy:%.3f' % (loss_log.mean().item(), acc_log.mean().item()))
+
     fit(model, train_dataloader, test_dataloader, loss_func, optimizer, epoch, device,
         scheduler=scheduler,
         save_path='./log/cifar/model',
-        name='resnet')
+        name='vgg-1')
 
     # model = Model3()
     # log_path = './log'

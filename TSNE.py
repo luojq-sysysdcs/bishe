@@ -10,12 +10,10 @@ from utils import *
 from GenerateData import *
 import os
 from models.SimpleModel import *
-
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 from sklearn import datasets
 from sklearn.manifold import TSNE
 from Visualizing import FeatureExtractor
-
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 
 def get_data():
@@ -56,21 +54,18 @@ def main():
 
 
 if __name__ == '__main__':
-
-    root = 'E:\ljq\data'
-    batch_size = 100
-    train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
+    root = 'E:/ljq/data'
+    dataclass = MNIST(root)
+    batch_size = 64
+    train_dataset, train_dataloader = \
+        dataclass.get_dataloader(train=True, batch_size=batch_size, shuffle=False, num_worker=4)
+    test_dataset, test_dataloader = \
+        dataclass.get_dataloader(train=False, batch_size=batch_size, shuffle=False, num_worker=4)
 
     # root = './log/PGD-model3-0.2'
-    root = './log/mnist/deepfool/resnet-20'
-    adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=False)
-
-    # model = SM()
-    # model = Model3()
-    # log_path = './log'
-    # load_model(model, log_path, 'model3')
-    # model = model.eval()
-    # print(model)
+    root = './log/mnist/pgd/resnet-0.2'
+    adversarial_dataclass = MNIST(root)
+    adversarial_dataset, adversarial_dataloader = adversarial_dataclass.get_dataloader(adversarial=True)
 
     model = resnet_mnist()
     log_path = './log/mnist/model'
@@ -216,7 +211,7 @@ if __name__ == '__main__':
     tsne_path = './log/mnist/tsne'
     if not os.path.exists(tsne_path):
         os.makedirs(tsne_path)
-    plt.savefig(os.path.join('./log/mnist/tsne', file_name))
+    # plt.savefig(os.path.join('./log/mnist/tsne', file_name))
     plt.show()
 # ------------------------------------------------
 #     root = 'E:\ljq\data'

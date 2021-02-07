@@ -48,8 +48,6 @@ def make_dataset(path):
                         if label == adv_label:
                             print(idx, label, adv_label)
                             raise ValueError
-                        if label == 0:
-                            continue
                         item = p, label, adv_label
                         instances.append(item)
                     # break # only load one adversarial image for one clean image
@@ -83,7 +81,7 @@ def default_loader(path: str) -> Any:
         return pil_loader(path)
 
 
-class MyDataSet2():
+class AdversarialDataset():
     def __init__(self, root, transform=None, target_transform=None):
         self.samples, self.true_labels = make_dataset(root)
         self.loader = default_loader
@@ -118,146 +116,214 @@ class MyDataSet2():
     def __len__(self):
         return len(self.samples)
 
-def get_adversarial_data(root, batch_size=64, shuffle=False):
-    print('getting adversarial dataset...')
-    transform = transforms.Compose([transforms.ToTensor(), ])
-    adversarial_dataset = MyDataSet2(root, transform=transform)
-    adversarial_dataloader = DataLoader(adversarial_dataset,
-                                        batch_size=batch_size, shuffle=shuffle, num_workers=0)
-    print('num of data:', len(adversarial_dataset))
-    print('num of batch', len(adversarial_dataloader))
-    return adversarial_dataset, adversarial_dataloader
-
-class MyDataSet():
-    training_file = 'training.pt'
-    test_file = 'test.pt'
-    classes = ['0 - zero', '1 - one', '2 - two', '3 - three', '4 - four',
-               '5 - five', '6 - six', '7 - seven', '8 - eight', '9 - nine']
-
-    def __init__(self, root, train=True, transform=None, target_transform=None, download=True,
-                 shuffle_label=False, label_root=None):
-        self.train = train  # training set or test set
-        self.processed_folder = os.path.join(root, 'MNIST', 'processed')
-        self.transform = transform
-        self.target_transform = target_transform
-        if not self._check_exists():
-            raise RuntimeError('Dataset not found.' +
-                               ' You can use download=True to download it')
-
-        if self.train:
-            data_file = self.training_file
-        else:
-            data_file = self.test_file
-        self.data, self.targets = torch.load(os.path.join(self.processed_folder, data_file))
-
-        if shuffle_label:
-            self.targets = np.loadtxt(label_root)
-
-    def _check_exists(self) -> bool:
-        return (os.path.exists(os.path.join(self.processed_folder,
-                                            self.training_file)) and
-                os.path.exists(os.path.join(self.processed_folder,
-                                            self.test_file)))
-
-    def __getitem__(self, index: int):
-        """
-        Args:
-            index (int): Index
-
-        Returns:
-            tuple: (image, target) where target is index of the target class.
-        """
-        img, target = self.data[index], int(self.targets[index])
-
-        # doing this so that it is consistent with all other datasets
-        # to return a PIL Image
-        img = Image.fromarray(img.numpy(), mode='L')
-
-        if self.transform is not None:
-            img = self.transform(img)
-
-        if self.target_transform is not None:
-            target = self.target_transform(target)
-
-        return img, target
-
-    def __len__(self) -> int:
-        return len(self.data)
+# def get_adversarial_data(root, batch_size=64, shuffle=False):
+#     print('getting adversarial dataset...')
+#     transform = transforms.Compose([transforms.ToTensor(), ])
+#     adversarial_dataset = MyDataSet2(root, transform=transform)
+#     adversarial_dataloader = DataLoader(adversarial_dataset,
+#                                         batch_size=batch_size, shuffle=shuffle, num_workers=0)
+#     print('num of data:', len(adversarial_dataset))
+#     print('num of batch', len(adversarial_dataloader))
+#     return adversarial_dataset, adversarial_dataloader
 
 
-def generate_data(root, name, train=True, transform=None, batch_size=None, shuffle=True, shuffle_label=False):
-    if name == 'MNIST':
-        loader = datasets.MNIST
-    elif name == 'CIFAR':
-        loader = datasets.CIFAR10
-    else:
-        raise NotImplementedError
-    if transform is None:
-        transform_train = transforms.Compose([transforms.ToTensor(),])
-        transform_test = transforms.Compose([transforms.ToTensor(),])
-    else:
-        transform_train = transform
-        transform_test = transform
-    if name == 'CIFAR':
-        transform_train = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),  # 先四周填充0，在吧图像随机裁剪成32*32
-            transforms.RandomHorizontalFlip(),  # 图像一半的概率翻转，一半的概率不翻转
+class CIFAR():
+    def __init__(self, root):
+        self.name = 'cifar'
+        self.root = root
+        self.mean = (0.4914, 0.4822, 0.4465)
+        self.std = (0.2023, 0.1994, 0.2010)
+        self.train_transform = transforms.Compose([
+            # transforms.RandomCrop(32, padding=4),  # 先四周填充0，在吧图像随机裁剪成32*32
+            # transforms.RandomHorizontalFlip(),  # 图像一半的概率翻转，一半的概率不翻转
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),  # R,G,B每层的归一化用到的均值和方差
         ])
-
-        transform_test = transforms.Compose([
+        self.test_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         ])
-    if batch_size is None:
-        batch_size = 64
-    if train:
-        train_dataset = loader(root=root, train=True, download=True, transform=transform_train)
-        if shuffle_label:
-            print('train label shuffled!')
-            torch.random.manual_seed(0)
-            train_dataset.targets = torch.randint(0, 10, size=(len(train_dataset),))
-        print('num of data:', len(train_dataset))
-        train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=4)
-        print('num of batch:', len(train_dataloader))
-        return train_dataset, train_dataloader
 
-    else:
-        test_dataset = loader(root=root, train=False, download=True, transform=transform_test)
-        print('num of data:', len((test_dataset)))
-        if shuffle_label:
-            print('test label shuffled!')
-            torch.random.manual_seed(0)
-            test_dataset.targets = torch.randint(0, 10, size=(len(test_dataset),))
-        test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
-        print('num of batch', len(test_dataloader))
-        return test_dataset, test_dataloader
+    def get_dataset(self, train=True, adversarial=False):
+        if adversarial:
+            dataset = AdversarialDataset(self.root, transform=self.test_transform)
+        elif train:
+            dataset = datasets.CIFAR10(self.root, train=train, transform=self.train_transform, download=False)
+        else:
+            dataset = datasets.CIFAR10(self.root, train=train, transform=self.test_transform, download=False)
+        return dataset
 
-# class NumpyDataset(datasets):
-#     def __init__(self):
+    def get_dataloader(self, train=True, batch_size=64, shuffle=False, num_worker=4, pin_memory=False):
+        dataset = self.get_dataset(train)
+        print('loading...')
+        print('num of data: %d' % len(dataset))
+        dataloader = DataLoader(dataset,shuffle=shuffle,
+                                batch_size=batch_size,
+                                num_workers=num_worker,
+                                pin_memory=False)
+        print('num of batch: %d' % len(dataloader))
+        return dataset, dataloader
+
+    def unnormalize(self, tensor, inplace=False):
+        if self.mean is None and self.std is None:
+            return tensor
+        if not isinstance(tensor, torch.Tensor):
+            raise TypeError('Input tensor should be a torch tensor. Got {}.'.format(type(tensor)))
+        if tensor.ndim < 3:
+            raise ValueError('Expected tensor to be a tensor image of size (..., C, H, W). Got tensor.size() = '
+                             '{}.'.format(tensor.size()))
+        if not inplace:
+            tensor = tensor.clone().detach()
+        dtype = tensor.dtype
+        mean = torch.tensor(self.mean, dtype=dtype, device=tensor.device)
+        std = torch.tensor(self.std, dtype=dtype, device=tensor.device)
+        if (std == 0).any():
+            raise ValueError('std evaluated to zero after conversion to {}, leading to division by zero.'.format(dtype))
+        if mean.ndim == 1:
+            mean = mean.view(-1, 1, 1)
+        if std.ndim == 1:
+            std = std.view(-1, 1, 1)
+        tensor.mul_(std).add_(mean).clamp_(min=0, max=1)
+        return tensor
+
+    def save(self, tensor, path):
+        """
+        将tensor保存为pillow
+        :param input_tensor: 要保存的tensor
+        :param filename: 保存的文件名
+        """
+        assert (len(tensor.shape) == 3)
+        tensor = tensor.clone().detach().to(torch.device('cpu'))
+        tensor = tensor.mul_(255).add_(0.5).clamp(0, 255).permute(1, 2, 0).squeeze().type(torch.uint8).numpy()
+        im = Image.fromarray(tensor)
+        im.save(path)
+
+
+class MNIST():
+    def __init__(self, root):
+        self.name = 'mnist'
+        self.root = root
+        self.mean = None
+        self.std = None
+        self.train_transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+        self.test_transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+
+    def get_dataset(self, train=True, adversarial=False):
+        if adversarial:
+            dataset = AdversarialDataset(self.root, transform=self.test_transform)
+        elif train:
+            dataset = datasets.MNIST(self.root, train=train, transform=self.train_transform, download=False)
+        else:
+            dataset = datasets.MNIST(self.root, train=train, transform=self.test_transform, download=False)
+        return dataset
+
+    def get_dataloader(self, train=True, batch_size=64, shuffle=False, num_worker=4, adversarial=False):
+        dataset = self.get_dataset(train, adversarial=adversarial)
+        print('loading...')
+        print('num of data: %d' % len(dataset))
+        dataloader = DataLoader(dataset,
+                          shuffle=shuffle,
+                          batch_size=batch_size,
+                          num_workers=num_worker)
+        print('num of batch: %d' % len(dataloader))
+        return dataset, dataloader
+
+    def unnormalize(self, tensor):
+        if self.mean is None and self.std is None:
+            return tensor
+        if not isinstance(tensor, torch.Tensor):
+            raise TypeError('Input tensor should be a torch tensor. Got {}.'.format(type(tensor)))
+        if tensor.ndim < 3:
+            raise ValueError('Expected tensor to be a tensor image of size (..., C, H, W). Got tensor.size() = '
+                             '{}.'.format(tensor.size()))
+
+        dtype = tensor.dtype
+        mean = torch.tensor(self.mean, dtype=dtype, device=tensor.device)
+        std = torch.tensor(self.std, dtype=dtype, device=tensor.device)
+        if (std == 0).any():
+            raise ValueError('std evaluated to zero after conversion to {}, leading to division by zero.'.format(dtype))
+        if mean.ndim == 1:
+            mean = mean.view(-1, 1, 1)
+        if std.ndim == 1:
+            std = std.view(-1, 1, 1)
+        tensor.mul_(std).add_(mean).clamp_(min=0, max=1)
+        return tensor
+
+    def save(self, tensor, path):
+        """
+        将tensor保存为pillow
+        :param input_tensor: 要保存的tensor
+        :param filename: 保存的文件名
+        """
+        assert (len(tensor.shape) == 3)
+        tensor = tensor.clone().detach().to(torch.device('cpu'))
+        tensor = tensor.mul_(255).add_(0.5).clamp(0, 255).permute(1, 2, 0).squeeze().type(torch.uint8).numpy()
+        im = Image.fromarray(tensor)
+        im.save(path)
+
+
+
+# def generate_data(root, name, train=True, transform=None, batch_size=None, shuffle=True, shuffle_label=False):
+#     if name == 'MNIST':
+#         loader = datasets.MNIST
+#     elif name == 'CIFAR':
+#         loader = datasets.CIFAR10
+#     else:
+#         raise NotImplementedError
+#     if transform is None:
+#         transform_train = transforms.Compose([transforms.ToTensor(),])
+#         transform_test = transforms.Compose([transforms.ToTensor(),])
+#     else:
+#         transform_train = transform
+#         transform_test = transform
+#     if name == 'CIFAR':
+#         transform_train = transforms.Compose([
+#             transforms.RandomCrop(32, padding=4),  # 先四周填充0，在吧图像随机裁剪成32*32
+#             transforms.RandomHorizontalFlip(),  # 图像一半的概率翻转，一半的概率不翻转
+#             transforms.ToTensor(),
+#             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),  # R,G,B每层的归一化用到的均值和方差
+#         ])
+#
+#         transform_test = transforms.Compose([
+#             transforms.ToTensor(),
+#             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+#         ])
+#     if batch_size is None:
+#         batch_size = 64
+#     if train:
+#         train_dataset = loader(root=root, train=True, download=True, transform=transform_train)
+#         if shuffle_label:
+#             print('train label shuffled!')
+#             torch.random.manual_seed(0)
+#             train_dataset.targets = torch.randint(0, 10, size=(len(train_dataset),))
+#         print('num of data:', len(train_dataset))
+#         train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=4)
+#         print('num of batch:', len(train_dataloader))
+#         return train_dataset, train_dataloader
+#
+#     else:
+#         test_dataset = loader(root=root, train=False, download=True, transform=transform_test)
+#         print('num of data:', len((test_dataset)))
+#         if shuffle_label:
+#             print('test label shuffled!')
+#             torch.random.manual_seed(0)
+#             test_dataset.targets = torch.randint(0, 10, size=(len(test_dataset),))
+#         test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+#         print('num of batch', len(test_dataloader))
+#         return test_dataset, test_dataloader
+
 
 if __name__ == '__main__':
     root = 'E:/ljq/data'
+    dataclass = CIFAR(root)
     batch_size = 64
-    train_dataset, train_dataloader = generate_data(root, 'CIFAR', train=True,
-                                                    batch_size=batch_size, shuffle=False, shuffle_label=False)
-
-
-    # root = './log/PGD'
-    # adversarial_dataset, train_dataloader = get_adversarial_data(root)
-    # for imgs, true_labels, fake_labels in train_dataloader:
-    #     print(imgs.shape)
-    #     print(true_labels)
-    #     break
-    # print(adversarial_dataset.get_sample(0, 2))
-    # root = 'E:/ljq/data'
-    # train_dataset = datasets.CIFAR10(root, train=True, download=True)
-    # print(train_dataset[0])
-
-
-
-
+    train_dataset, train_dataloader = dataclass.get_dataloader(train=True, batch_size=batch_size, shuffle=False, num_worker=4)
+    test_dataset, test_dataloader = dataclass.get_dataloader(train=False, batch_size=batch_size, shuffle=False, num_worker=4)
+    print(torch.min(dataclass.unnormalize(train_dataset[0][0])))
 
 
 
