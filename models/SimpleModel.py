@@ -212,7 +212,7 @@ class resnet_cifar(nn.Module):
         super(resnet_cifar, self).__init__()
         self.name = 'resnet-cifar'
         # self.conv1 = nn.Conv2d(in_channel, 64, (3, 3), stride=1, padding=1)
-        resnet18 = resnet.resnet18(pretrained=False, num_classes=10).cuda()
+        resnet18 = resnet.resnet18(pretrained=False, num_classes=10)
         self.model = resnet18
         # self.extract = nn.Sequential(*list(resnet18.children())[1:-3])
         # self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -231,7 +231,9 @@ class resnet_cifar(nn.Module):
 
 if __name__ == '__main__':
     # model = resnet.resnet18(pretrained=False, num_classes=10).cuda()
-    model = vgg_cifar().cuda()
+    model = resnet_cifar()
+    log_path = './log/cifar/model'
+    model = model.eval()
     summary(model, (3, 32, 32))
     print(model)
     # model = resnet_mnist().cuda()

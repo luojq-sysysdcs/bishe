@@ -34,7 +34,11 @@ class PGD(Attack):
 
     """
 
-    def __init__(self, model, eps=0.2, alpha=1 / 255, steps=100, random_start=False, mean=None, std=None, channels=3):
+    def __init__(self, model, eps=0.2, alpha=1 / 255, steps=100,
+                 random_start=False,
+                 mean=None,
+                 std=None,
+                 channels=3):
         super(PGD, self).__init__("PGD", model)
         # self.eps = [eps]
         self.alpha = alpha

@@ -56,11 +56,11 @@ def make_dataset(path):
     return instances, labels
 
 
-def pil_loader(path: str) -> Image.Image:
+def pil_loader(path: str, mode: str) -> Image.Image:
     # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
     with open(path, 'rb') as f:
         img = Image.open(f)
-        return img.convert('L')
+        return img.convert(mode)
 
 
 # TODO: specify the return type
@@ -70,7 +70,7 @@ def accimage_loader(path: str) -> Any:
         return accimage.Image(path)
     except IOError:
         # Potentially a decoding problem, fall back to PIL.Image
-        return pil_loader(path)
+        return pil_loader(path, mode='RGB')
 
 
 def default_loader(path: str) -> Any:
@@ -78,20 +78,21 @@ def default_loader(path: str) -> Any:
     if get_image_backend() == 'accimage':
         return accimage_loader(path)
     else:
-        return pil_loader(path)
+        return pil_loader(path, mode='RGB')
 
 
 class AdversarialDataset():
-    def __init__(self, root, transform=None, target_transform=None):
+    def __init__(self, root, transform=None, target_transform=None, mode='RGB'):
         self.samples, self.true_labels = make_dataset(root)
-        self.loader = default_loader
+        self.loader = pil_loader
         self.transform = transform
         self.target_transform = target_transform
         self.root = root
+        self.mode = mode
 
     def __getitem__(self, index):
         path, tl, al = self.samples[index]
-        sample = self.loader(path)
+        sample = self.loader(path, self.mode)
         if self.transform is not None:
             sample = self.transform(sample)
         # if self.target_transform is not None:
@@ -103,7 +104,7 @@ class AdversarialDataset():
         if not os.path.exists(path):
             return None, None, None
         else:
-            sample = self.loader(path)
+            sample = self.loader(path, self.mode)
             if self.transform is not None:
                 sample = self.transform(sample)
             # if self.target_transform is not None:
@@ -146,15 +147,15 @@ class CIFAR():
 
     def get_dataset(self, train=True, adversarial=False):
         if adversarial:
-            dataset = AdversarialDataset(self.root, transform=self.test_transform)
+            dataset = AdversarialDataset(self.root, transform=self.test_transform, mode='RGB')
         elif train:
             dataset = datasets.CIFAR10(self.root, train=train, transform=self.train_transform, download=False)
         else:
             dataset = datasets.CIFAR10(self.root, train=train, transform=self.test_transform, download=False)
         return dataset
 
-    def get_dataloader(self, train=True, batch_size=64, shuffle=False, num_worker=4, pin_memory=False):
-        dataset = self.get_dataset(train)
+    def get_dataloader(self, train=True, batch_size=64, shuffle=False, num_worker=4, adversarial=False, pin_memory=False):
+        dataset = self.get_dataset(train, adversarial=adversarial)
         print('loading...')
         print('num of data: %d' % len(dataset))
         dataloader = DataLoader(dataset,shuffle=shuffle,
@@ -214,7 +215,7 @@ class MNIST():
 
     def get_dataset(self, train=True, adversarial=False):
         if adversarial:
-            dataset = AdversarialDataset(self.root, transform=self.test_transform)
+            dataset = AdversarialDataset(self.root, transform=self.test_transform, mode='L')
         elif train:
             dataset = datasets.MNIST(self.root, train=train, transform=self.train_transform, download=False)
         else:
@@ -232,7 +233,7 @@ class MNIST():
         print('num of batch: %d' % len(dataloader))
         return dataset, dataloader
 
-    def unnormalize(self, tensor):
+    def unnormalize(self, tensor, inplace=False):
         if self.mean is None and self.std is None:
             return tensor
         if not isinstance(tensor, torch.Tensor):
@@ -240,7 +241,8 @@ class MNIST():
         if tensor.ndim < 3:
             raise ValueError('Expected tensor to be a tensor image of size (..., C, H, W). Got tensor.size() = '
                              '{}.'.format(tensor.size()))
-
+        if not inplace:
+            tensor = tensor.clone().detach()
         dtype = tensor.dtype
         mean = torch.tensor(self.mean, dtype=dtype, device=tensor.device)
         std = torch.tensor(self.std, dtype=dtype, device=tensor.device)

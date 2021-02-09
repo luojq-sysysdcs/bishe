@@ -26,14 +26,14 @@ if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     root = 'E:/ljq/data'
-    dataclass = CIFAR(root)
-    batch_size = 64
+    dataclass = MNIST(root)
+    batch_size = 100
     train_dataset, train_dataloader = \
         dataclass.get_dataloader(train=True, batch_size=batch_size, shuffle=False, num_worker=4)
     test_dataset, test_dataloader = \
         dataclass.get_dataloader(train=False, batch_size=batch_size, shuffle=False, num_worker=4)
 
-    model = vgg_cifar()
+    model = vgg_mnist()
     log_path = os.path.join('./log', dataclass.name, 'model')
     load_model(model, log_path, model.name.split('-')[0])
     model = model.eval().to(device)
@@ -45,13 +45,13 @@ if __name__ == '__main__':
     # exit(0)
 
     # adversary = FGSM(model, eps=0.15)
-    adversary = PGD(model, eps=0.01, alpha=2 / 255, steps=20,
-                    random_start=False, mean=dataclass.mean, std=dataclass.std)
+    adversary = PGD(model, eps=0.3, alpha=2 / 255, steps=50,
+                    random_start=False, mean=dataclass.mean, std=dataclass.std, channels=1)
     # adversary = CW(model, c=1e1, kappa=0, steps=50, lr=1e-1, use_cuda=torch.cuda.is_available())
     num_classes = 10
     # adversary = DeepFool(model, num_classes=num_classes, steps=50)
 
-    root = os.path.join('./log', dataclass.name, 'pgd', 'test')
+    root = os.path.join('./log', dataclass.name, 'pgd', 'vgg-0.3')
     # if os.path.exists(root):
     #     shutil.rmtree(root)
     if not os.path.exists(root):
@@ -62,8 +62,8 @@ if __name__ == '__main__':
     target_attack = True
     true_labels = []
     for idx, (images, labels) in enumerate(train_dataloader):
-        if idx * batch_size >= 1000:
-            break
+        # if idx * batch_size >= 1000:
+        #     break
         # if idx * batch_size >= 9000:
         #     break
         true_labels += list(labels)
@@ -109,7 +109,7 @@ if __name__ == '__main__':
             else:
                 print('success rate : %d / %d ( %f ) ' % (count, ( (idx + 1) * batch_size),
                                                           count / ((idx + 1) * batch_size)))
-    # np.savetxt(os.path.join(root, 'labels.txt'), true_labels, fmt="%d")
+    np.savetxt(os.path.join(root, 'labels.txt'), true_labels, fmt="%d")
 
 # -----------------------------
 # labels = []

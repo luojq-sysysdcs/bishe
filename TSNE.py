@@ -28,11 +28,11 @@ def plot_embedding(data, label, title):
     x_min, x_max = np.min(data, 0), np.max(data, 0)
     data = (data - x_min) / (x_max - x_min)
 
-    fig = plt.figure()
+    fig = plt.figure(dpi=300)
     ax = plt.subplot(111)
     for i in range(data.shape[0]):
         plt.text(data[i, 0], data[i, 1], str(label[i] if label[i] < 10 else label[i] - 10),
-                 color=plt.cm.Set1(label[i] / 20.),
+                 color=plt.cm.tab20b(label[i] / 20.),
                  fontdict={'weight': 'bold', 'size': 9})
     plt.xticks([])
     plt.yticks([])
@@ -55,7 +55,7 @@ def main():
 
 if __name__ == '__main__':
     root = 'E:/ljq/data'
-    dataclass = MNIST(root)
+    dataclass = CIFAR(root)
     batch_size = 64
     train_dataset, train_dataloader = \
         dataclass.get_dataloader(train=True, batch_size=batch_size, shuffle=False, num_worker=4)
@@ -63,13 +63,13 @@ if __name__ == '__main__':
         dataclass.get_dataloader(train=False, batch_size=batch_size, shuffle=False, num_worker=4)
 
     # root = './log/PGD-model3-0.2'
-    root = './log/mnist/pgd/resnet-0.2'
-    adversarial_dataclass = MNIST(root)
+    root = './log/cifar/pgd/vgg-0.03'
+    adversarial_dataclass = CIFAR(root)
     adversarial_dataset, adversarial_dataloader = adversarial_dataclass.get_dataloader(adversarial=True)
 
-    model = resnet_mnist()
-    log_path = './log/mnist/model'
-    load_model(model, log_path, 'resnet')
+    model = vgg_cifar()
+    log_path = './log/cifar/model'
+    load_model(model, log_path, 'vgg')
     model = model.eval()
     print(model)
 
@@ -80,33 +80,38 @@ if __name__ == '__main__':
     #     count += torch.sum((pre==tl).float())
     # print(count / len(adversarial_dataset))
 
-    # features = []
-    # labels = []
-    # images = []
-    # fx = FeatureExtractor()
-    # target_module = ['avgpool']
-    # for idx, (imgs, ls) in enumerate(train_dataloader):
-    #     if idx == 10:
-    #         break
-    #     images.append(imgs.flatten(1))
-    #     labels.append(ls)
-    #     feature = fx(model, imgs, target_module)[0].flatten(start_dim=1)
-    #     features.append(feature)
-    # images = torch.cat(images, 0).detach().cpu().numpy()
-    # labels = torch.cat(labels, 0).detach().cpu().numpy()
-    # features = torch.cat(features, 0).detach().cpu().numpy()
-    # print(images.shape)
-    # print(labels.shape)
-    # print(features.shape)
-    #
-    # tsne = TSNE(n_components=2, init='pca', random_state=0)
-    # print('Computing t-SNE embedding')
-    # t0 = time()
-    # result = tsne.fit_transform(features)
-    # fig = plot_embedding(result, labels,
-    #                      't-SNE embedding of the digits (time %.2fs)'
-    #                      % (time() - t0))
-    # fig.show()
+    features = []
+    labels = []
+    images = []
+    choice = 10
+    fx = FeatureExtractor()
+    target_module = ['avgpool']
+    for idx, (imgs, ls) in enumerate(train_dataloader):
+        if len(labels) >= 500:
+            break
+        wanted = ls < choice
+        # wanted = torch.ones(imgs.shape[0], dtype=torch.bool)
+        imgs = imgs[wanted]
+        ls = ls[wanted]
+        images.append(imgs.flatten(1))
+        labels += list(ls)
+        feature = fx(model, imgs, target_module)[0].flatten(start_dim=1)
+        # feature = model(imgs)
+        features.append(feature)
+    features = torch.cat(features, 0).detach().cpu().numpy()
+    images = torch.cat(images, 0).detach().cpu().numpy()
+    labels = np.array(labels)
+    print(images.shape)
+    print(labels.shape)
+    print(features.shape)
+
+    tsne = TSNE(n_components=2, init='pca', random_state=0)
+    print('Computing t-SNE embedding')
+    result = tsne.fit_transform(features)
+    fig = plot_embedding(result, labels,
+                         't-SNE embedding of the digits')
+    fig.show()
+    exit(0)
 # -----------------------------------------
 #     features = []
 #     true_labels = []
@@ -150,7 +155,7 @@ if __name__ == '__main__':
     adversarial_features = []
     fx = FeatureExtractor()
     target_module = ['avgpool']
-    choice = 5
+    choice = 10
     for idx, (imgs, tl, al) in enumerate(adversarial_dataloader):
         if len(adversarial_labels) >= 500:
             break
@@ -206,12 +211,13 @@ if __name__ == '__main__':
     result = tsne.fit_transform(np.concatenate((adversarial_features, true_features), axis=0))
     t1 = time.time()
     print('used time: %d' % (t1 - t0))
-    file_name = '-'.join((root + '--' + model.name).split('/')[-2:])
+    file_name = '-'.join((root + '-' + model.name).split('/')[-2:])
+    print(file_name)
     fig = plot_embedding(result, np.concatenate((adversarial_labels + 10, true_labels), axis=0), file_name)
-    tsne_path = './log/mnist/tsne'
+    tsne_path = './log/cifar/tsne'
     if not os.path.exists(tsne_path):
         os.makedirs(tsne_path)
-    # plt.savefig(os.path.join('./log/mnist/tsne', file_name))
+    plt.savefig(os.path.join(tsne_path, file_name + '.jpg'))
     plt.show()
 # ------------------------------------------------
 #     root = 'E:\ljq\data'
