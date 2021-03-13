@@ -11,7 +11,8 @@ from torch.utils.data import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import torch
 from PIL import Image
 from typing import Any, Callable, cast, Dict, List, Optional, Tuple
@@ -31,14 +32,14 @@ def make_dataset(path):
         labels = None
     instances = []
     for root, dirs, files in sorted(os.walk(path)):
-        dirs = sorted(dirs, key=lambda x:int(x))
+        dirs = sorted(dirs, key=lambda x: int(x))
         for idx, dir in enumerate(dirs):
             if labels is None:
                 label = -1
             else:
                 label = labels[idx]
             for r, _, fnames in os.walk(os.path.join(path, dir)):
-                random.shuffle(fnames) # pay attention
+                random.shuffle(fnames)  # pay attention
                 for fname in fnames:
                     if not fname.split('.')[0].isdigit():
                         continue
@@ -82,17 +83,26 @@ def default_loader(path: str) -> Any:
 
 
 class AdversarialDataset():
-    def __init__(self, root, transform=None, target_transform=None, mode='RGB'):
+    def __init__(self, root, transform=None, target_transform=None, mode='RGB', load=False):
         self.samples, self.true_labels = make_dataset(root)
         self.loader = pil_loader
         self.transform = transform
         self.target_transform = target_transform
         self.root = root
         self.mode = mode
+        self.load = load
+
+        if load:
+            for i in range(len(self.samples)):
+                path, tl, al = self.samples[i]
+                self.samples[i] = (self.loader(path, self.mode), tl, al)
 
     def __getitem__(self, index):
         path, tl, al = self.samples[index]
-        sample = self.loader(path, self.mode)
+        if not self.load:
+            sample = self.loader(path, self.mode)
+        else:
+            sample = path
         if self.transform is not None:
             sample = self.transform(sample)
         # if self.target_transform is not None:
@@ -115,7 +125,8 @@ class AdversarialDataset():
                 return sample, None, choice
 
     def __len__(self):
-        return len(self.samples)
+        return min(len(self.samples), 100000)
+
 
 # def get_adversarial_data(root, batch_size=64, shuffle=False):
 #     print('getting adversarial dataset...')
@@ -129,36 +140,46 @@ class AdversarialDataset():
 
 
 class CIFAR():
-    def __init__(self, root):
+    def __init__(self, root, transform=False, load=False):
         self.name = 'cifar'
         self.root = root
         self.mean = (0.4914, 0.4822, 0.4465)
         self.std = (0.2023, 0.1994, 0.2010)
-        self.train_transform = transforms.Compose([
-            # transforms.RandomCrop(32, padding=4),  # 先四周填充0，在吧图像随机裁剪成32*32
-            # transforms.RandomHorizontalFlip(),  # 图像一半的概率翻转，一半的概率不翻转
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),  # R,G,B每层的归一化用到的均值和方差
-        ])
-        self.test_transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ])
+        self.load = load
+        if transform:
+            self.train_transform = transforms.Compose([
+                # transforms.RandomCrop(32, padding=4),  # 先四周填充0，在吧图像随机裁剪成32*32
+                # transforms.RandomHorizontalFlip(),  # 图像一半的概率翻转，一半的概率不翻转
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),  # R,G,B每层的归一化用到的均值和方差
+            ])
+            self.test_transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            ])
+        else:
+            self.train_transform = transforms.Compose([
+                transforms.ToTensor(),
+            ])
+            self.test_transform = transforms.Compose([
+                transforms.ToTensor(),
+            ])
 
     def get_dataset(self, train=True, adversarial=False):
         if adversarial:
-            dataset = AdversarialDataset(self.root, transform=self.test_transform, mode='RGB')
+            dataset = AdversarialDataset(self.root, transform=self.test_transform, mode='RGB', load=self.load)
         elif train:
             dataset = datasets.CIFAR10(self.root, train=train, transform=self.train_transform, download=False)
         else:
             dataset = datasets.CIFAR10(self.root, train=train, transform=self.test_transform, download=False)
         return dataset
 
-    def get_dataloader(self, train=True, batch_size=64, shuffle=False, num_worker=4, adversarial=False, pin_memory=False):
+    def get_dataloader(self, train=True, batch_size=64, shuffle=False, num_worker=4, adversarial=False,
+                       pin_memory=False):
         dataset = self.get_dataset(train, adversarial=adversarial)
         print('loading...')
         print('num of data: %d' % len(dataset))
-        dataloader = DataLoader(dataset,shuffle=shuffle,
+        dataloader = DataLoader(dataset, shuffle=shuffle,
                                 batch_size=batch_size,
                                 num_workers=num_worker,
                                 pin_memory=False)
@@ -201,11 +222,12 @@ class CIFAR():
 
 
 class MNIST():
-    def __init__(self, root):
+    def __init__(self, root, transform=False, load=False):
         self.name = 'mnist'
         self.root = root
         self.mean = None
         self.std = None
+        self.load = load
         self.train_transform = transforms.Compose([
             transforms.ToTensor(),
         ])
@@ -215,21 +237,23 @@ class MNIST():
 
     def get_dataset(self, train=True, adversarial=False):
         if adversarial:
-            dataset = AdversarialDataset(self.root, transform=self.test_transform, mode='L')
+            dataset = AdversarialDataset(self.root, transform=self.test_transform, mode='L', load=self.load)
         elif train:
             dataset = datasets.MNIST(self.root, train=train, transform=self.train_transform, download=False)
         else:
             dataset = datasets.MNIST(self.root, train=train, transform=self.test_transform, download=False)
         return dataset
 
-    def get_dataloader(self, train=True, batch_size=64, shuffle=False, num_worker=4, adversarial=False):
+    def get_dataloader(self, train=True, batch_size=64, shuffle=False, num_worker=4, adversarial=False,
+                       pin_memory=False):
         dataset = self.get_dataset(train, adversarial=adversarial)
         print('loading...')
         print('num of data: %d' % len(dataset))
         dataloader = DataLoader(dataset,
-                          shuffle=shuffle,
-                          batch_size=batch_size,
-                          num_workers=num_worker)
+                                shuffle=shuffle,
+                                batch_size=batch_size,
+                                num_workers=num_worker,
+                                pin_memory=pin_memory)
         print('num of batch: %d' % len(dataloader))
         return dataset, dataloader
 
@@ -266,7 +290,6 @@ class MNIST():
         tensor = tensor.mul_(255).add_(0.5).clamp(0, 255).permute(1, 2, 0).squeeze().type(torch.uint8).numpy()
         im = Image.fromarray(tensor)
         im.save(path)
-
 
 
 # def generate_data(root, name, train=True, transform=None, batch_size=None, shuffle=True, shuffle_label=False):
@@ -323,11 +346,8 @@ if __name__ == '__main__':
     root = 'E:/ljq/data'
     dataclass = CIFAR(root)
     batch_size = 64
-    train_dataset, train_dataloader = dataclass.get_dataloader(train=True, batch_size=batch_size, shuffle=False, num_worker=4)
-    test_dataset, test_dataloader = dataclass.get_dataloader(train=False, batch_size=batch_size, shuffle=False, num_worker=4)
+    train_dataset, train_dataloader = dataclass.get_dataloader(train=True, batch_size=batch_size, shuffle=False,
+                                                               num_worker=4)
+    test_dataset, test_dataloader = dataclass.get_dataloader(train=False, batch_size=batch_size, shuffle=False,
+                                                             num_worker=4)
     print(torch.min(dataclass.unnormalize(train_dataset[0][0])))
-
-
-
-
-

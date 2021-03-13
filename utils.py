@@ -11,7 +11,8 @@ import os
 from matplotlib import pyplot as plt
 import numpy as np
 import time
-
+from torch import nn
+from PIL import Image
 
 def train(model, dataloader, loss_func, optimizer, device):
     model = model.train().to(device)
@@ -39,7 +40,7 @@ def train(model, dataloader, loss_func, optimizer, device):
             print("idx:%3d, loss: %.3f, accuracy:%.3f" % (idx, loss.item(), acc))
 
 
-def evaluate(model, dataloader, loss_func, device, logger=None):
+def evaluate(model, dataloader, loss_func=None, device='cpu', logger=None):
     model = model.eval().to(device)
     loss_log = torch.zeros(len(dataloader))
     acc_log = torch.zeros(len(dataloader))
@@ -47,7 +48,7 @@ def evaluate(model, dataloader, loss_func, device, logger=None):
     with torch.no_grad():
         for idx, sample in enumerate(dataloader):
             if len(sample) == 3:
-                images, labels, _ = sample
+                images, _, labels = sample
             elif len(sample) == 2:
                 images, labels = sample
             else:
@@ -58,10 +59,12 @@ def evaluate(model, dataloader, loss_func, device, logger=None):
             output = model(images)
             _, pred = torch.max(output, 1)
             acc_log[idx] = torch.sum((pred == labels).float()) / len(images)
-            loss = loss_func(output, labels)
-            loss_log[idx] = loss
+            if loss_func is not None:
+                loss = loss_func(output, labels)
+                loss_log[idx] = loss
 
-        return loss_log, acc_log
+    print('loss:%.3f, accuracy:%.3f' % (loss_log.mean().item(), acc_log.mean().item()))
+    return loss_log, acc_log
 
 
 def cal_acc(model, dataloader, device, label=None):
@@ -138,6 +141,36 @@ def show(img, path=None):
         plt.savefig(path)
     plt.show()
 
+
+class Normalize(nn.Module):
+    def __init__(self, mean, std):
+        super(Normalize, self).__init__()
+        self.register_buffer('mean', torch.Tensor(mean))
+        self.register_buffer('std', torch.Tensor(std))
+
+    def forward(self, input):
+        # Broadcasting
+        mean = self.mean.reshape(1, 3, 1, 1)
+        std = self.std.reshape(1, 3, 1, 1)
+        return (input - mean) / std
+
+
+def add_normal_layer(model, mean, std):
+    norm_layer = Normalize(mean=mean, std=std)
+
+    model = nn.Sequential(
+        norm_layer,
+        model
+    )
+    return model
+
+
+def save_image(tensor, path):
+    assert (len(tensor.shape) == 3)
+    tensor = tensor.clone().detach().to(torch.device('cpu'))
+    tensor = tensor.mul_(255).add_(0.5).clamp(0, 255).permute(1, 2, 0).squeeze().type(torch.uint8).numpy()
+    im = Image.fromarray(tensor)
+    im.save(path)
 
 
 

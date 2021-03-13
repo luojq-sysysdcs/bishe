@@ -9,3 +9,4 @@ from .CW import *
 from .FGSM import *
 from .deepfool import *
 from .PGD import *
+from .MFGSM import *

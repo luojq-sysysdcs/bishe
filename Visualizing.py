@@ -17,11 +17,12 @@ os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 
 class FeatureExtractor():
-    def __init__(self):
+    def __init__(self, device='cpu'):
         self.target_activations = []
         self.x = None
         self.target_layers = None
         self.index = 0
+        self.device = device
 
     def extractor(self, model):
         for name, child in model.named_children():
@@ -29,7 +30,7 @@ class FeatureExtractor():
                 self.index += 1
                 if self.index == len(self.target_layers):
                     self.x = child(self.x)
-                    self.target_activations.append(self.x)
+                    self.target_activations.append(self.x.detach().clone().cpu())
                 else:
                     self.extractor(child)
             else:
@@ -40,10 +41,10 @@ class FeatureExtractor():
     def __call__(self, model, x, target_layers):
         self.index = 0
         self.target_activations = []
-        self.model = model
-        self.x = x.detach().clone()
+        self.model = model.to(self.device)
+        self.x = x.detach().clone().to(self.device)
         self.target_layers = target_layers
-        self.extractor(model)
+        self.extractor(self.model)
         return self.target_activations
 
 

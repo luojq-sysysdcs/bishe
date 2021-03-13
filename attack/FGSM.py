@@ -31,28 +31,36 @@ class FGSM():
         # >>> adv_images = attack(images, labels)
 
     """
-    def __init__(self, model, eps=0.007):
+    def __init__(self, model, eps=0.007,random_start=False):
         self.eps = eps
         self.model = model
         self.device = next(model.parameters()).device
+        self.random_start = random_start
 
     def forward(self, images, labels):
         r"""
         Overridden.
         """
-        images = images.clone().detach().to(self.device)
+        adv_images = images.clone().detach().to(self.device)
         labels = labels.clone().detach().to(self.device)
 
         loss = nn.CrossEntropyLoss()
 
-        images.requires_grad = True
-        outputs = self.model(images)
+        if self.random_start:
+            # Starting at a uniformly random point
+            adv_images = adv_images + torch.empty_like(adv_images).uniform_(-self.eps, self.eps)
+            adv_images = torch.clamp(adv_images, min=0, max=1).detach()
+
+        adv_images.requires_grad = True
+        outputs = self.model(adv_images)
         cost = loss(outputs, labels)
 
-        grad = torch.autograd.grad(cost, images,
+        grad = torch.autograd.grad(cost, adv_images,
                                    retain_graph=False, create_graph=False)[0]
 
-        adv_images = images - self.eps*grad.sign()
+        adv_images = adv_images - self.eps*grad.sign()
         adv_images = torch.clamp(adv_images, min=0, max=1).detach()
 
-        return adv_images
+        _, pred = torch.max(self.model(adv_images), 1)
+
+        return adv_images, pred == labels
