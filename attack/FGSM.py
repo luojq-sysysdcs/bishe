@@ -11,7 +11,7 @@ import torch.nn as nn
 from Attack import *
 
 
-class FGSM():
+class FGSM(Attack):
     r"""
     FGSM in the paper 'Explaining and harnessing adversarial examples'
     [https://arxiv.org/abs/1412.6572]
@@ -31,10 +31,9 @@ class FGSM():
         # >>> adv_images = attack(images, labels)
 
     """
-    def __init__(self, model, eps=0.007,random_start=False):
+    def __init__(self, model, eps=0.03,random_start=False):
+        super(FGSM, self).__init__('FGSM', model)
         self.eps = eps
-        self.model = model
-        self.device = next(model.parameters()).device
         self.random_start = random_start
 
     def forward(self, images, labels):
@@ -53,12 +52,12 @@ class FGSM():
 
         adv_images.requires_grad = True
         outputs = self.model(adv_images)
-        cost = loss(outputs, labels)
+        cost = self._targeted * loss(outputs, labels)
 
         grad = torch.autograd.grad(cost, adv_images,
                                    retain_graph=False, create_graph=False)[0]
 
-        adv_images = adv_images - self.eps*grad.sign()
+        adv_images = adv_images + self.eps*grad.sign()
         adv_images = torch.clamp(adv_images, min=0, max=1).detach()
 
         _, pred = torch.max(self.model(adv_images), 1)

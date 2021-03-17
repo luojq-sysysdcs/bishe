@@ -62,36 +62,38 @@ if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     root = 'E:/ljq/data'
-    dataclass = MNIST(root)
-    batch_size = 64
+    dataclass = CIFAR(root, transform=False)
+    batch_size = 32
     train_dataset, train_dataloader = \
-        dataclass.get_dataloader(train=True, batch_size=batch_size, shuffle=False, num_worker=4)
+        dataclass.get_dataloader(train=True, batch_size=batch_size, shuffle=False, num_worker=0)
     test_dataset, test_dataloader = \
-        dataclass.get_dataloader(train=False, batch_size=batch_size, shuffle=False, num_worker=4)
+        dataclass.get_dataloader(train=False, batch_size=batch_size, shuffle=False, num_worker=0)
 
     # root = './log/PGD-model3-0.2'
-    root = './log/mnist/pgd/vgg-0.3'
-    adversarial_dataclass = MNIST(root, load=True)
+    root = './log/cifar/pgd/resnet-0.03'
+    adversarial_dataclass = CIFAR(root, load=True, transform=False)
     adversarial_dataset, adversarial_dataloader = adversarial_dataclass.get_dataloader(adversarial=True)
 
-    model = vgg_mnist()
-    log_path = './log/mnist/model'
-    load_model(model, log_path, 'vgg')
-    # model = add_normal_layer(model, (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+    model = resnet_cifar()
+    log_path = './log/cifar/model'
+    load_model(model, log_path, 'resnet')
+    model = add_normal_layer(model, (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     model = model.eval().to(device)
     print(model)
 
     # evaluate(model, test_dataloader)
     # evaluate(model, adversarial_dataloader)
 
-    fx = FeatureExtractor(device)
-    target_module = ['avgpool']
+    target_module = ['1', 'model', 'avgpool']
+    fx = FeatureExtractor(model, target_module)
+
 
     # 计算训练样本的feature
     labels = torch.zeros((10, ), dtype=torch.int)
     features = [[] for i in range(10)]
 
     for idx, (imgs, ls) in enumerate(train_dataloader):
+        print(idx)
         imgs = imgs.to(device)
         ls = ls.to(device)
 
@@ -105,7 +107,7 @@ if __name__ == '__main__':
         imgs = imgs[ls == pred]
         ls = ls[ls == pred]
 
-        ft = fx(model, imgs, target_module)[0].flatten(start_dim=1)
+        ft = fx(imgs)[0].flatten(start_dim=1).detach()
         for i in range(10):
             features[i].append(ft[ls == i])
             labels[i] += torch.sum((ls == i).int())
@@ -123,7 +125,7 @@ if __name__ == '__main__':
     for idx, (imgs, _, ls) in enumerate(adversarial_dataloader):
         if len(imgs) == 0:
             continue
-        ft = fx(model, imgs, target_module)[0].flatten(start_dim=1)
+        ft = fx(imgs)[0].flatten(start_dim=1).detach()
         for i in range(10):
             adv_features[i].append(ft[ls == i])
             adv_labels[i] += torch.sum((ls == i).int())
@@ -142,40 +144,39 @@ if __name__ == '__main__':
     #     plt.show()
 
     # 计算测试集的feature
-    test_features = [[] for i in range(10)]
-
-    for idx, (imgs, ls) in enumerate(test_dataloader):
-        ft = fx(model, imgs, target_module)[0].flatten(start_dim=1)
-        for i in range(10):
-            test_features[i].append(ft[ls == i])
-
-    for i in range(10):
-        test_features[i] = torch.cat(test_features[i], dim=0).detach().numpy()
-        print(test_features[i].shape)
+    # test_features = [[] for i in range(10)]
+    #
+    # for idx, (imgs, ls) in enumerate(test_dataloader):
+    #     ft = fx(imgs)[0].flatten(start_dim=1).detach()
+    #     for i in range(10):
+    #         test_features[i].append(ft[ls == i])
+    #
+    # for i in range(10):
+    #     test_features[i] = torch.cat(test_features[i], dim=0).detach().numpy()
+    #     print(test_features[i].shape)
 
     # 计算对抗样本到feature之间的相似度
-    # cos_sim = np.zeros((10, 10))
-    # pred = np.zeros((10, 10), dtype=np.int32)
-    # adv_count = 0
-    #
-    # for j in range(10):
-    #     pop = np.zeros((10, len(adv_features[j])), dtype=np.float32)
-    #     for i in range(10):
-    #         sim = cosine_similarity(features[i], adv_features[j])
-    #         cos_sim[j][i] = np.nanmean(sim)
-    #         pop[i, :] = np.nanmean(sim, axis=0)
-    #
-    #     index = np.nanargmax(pop, axis=0)
-    #     adv_count += np.nansum(np.max(pop, axis=0) < 0.8)
-    #     for i in range(10):
-    #         pred[j][i] = np.nansum(index == i)
-    #
-    # print(pred)
-    # print(cos_sim)
-    # plt.imshow(pred)
-    # plt.show()
-    # plt.imshow(cos_sim)
-    # plt.show()
+    cos_sim = np.zeros((10, 10))
+    pred = np.zeros((10, 10), dtype=np.int32)
+    adv_count = 0
+
+    for j in range(10):
+        pop = np.zeros((10, len(adv_features[j])), dtype=np.float32)
+        for i in range(10):
+            sim = cosine_similarity(features[i], adv_features[j])
+            cos_sim[j][i] = np.nanmean(sim)
+            pop[i, :] = np.nanmean(sim, axis=0)
+
+        index = np.nanargmax(pop, axis=0)
+        for i in range(10):
+            pred[j][i] = np.nansum(index == i)
+
+    print(pred)
+    print(cos_sim)
+    plt.imshow(pred)
+    plt.show()
+    plt.imshow(cos_sim)
+    plt.show()
     #
     # # 计算测试样本到feature之间的相似度
     # cos_sim = np.zeros((10, 10))
@@ -201,10 +202,10 @@ if __name__ == '__main__':
     # plt.show()
 
     # 用余弦相似度分类
-    distribution = np.empty((10, 100), dtype=np.float)
-    for i in range(10):
-        cos_sim = cosine_similarity(features[i][:100], test_features[i])
-        distribution[i] = np.nanmean(cos_sim, axis=1)
+    # distribution = np.empty((10, 100), dtype=np.float)
+    # for i in range(10):
+    #     cos_sim = cosine_similarity(features[i][:100], test_features[i])
+    #     distribution[i] = np.nanmean(cos_sim, axis=1)
 
     # acc = 0
     # pred = np.zeros((10, 10), dtype=np.int32)
@@ -221,19 +222,19 @@ if __name__ == '__main__':
     # plt.show()
     # print(pred)
 
-    pred = np.zeros((10, 10), dtype=np.int32)
-    for j in range(10):
-        pop = np.zeros((10, len(adv_features[j])), dtype=np.float32)
-        for i in range(10):
-            cos_sim = cosine_similarity(features[i][:100], adv_features[j])
-            kl = entropy(distribution[i].reshape(-1, 1).repeat(cos_sim.shape[1], axis=1), cos_sim, axis=0)
-            pop[i, :] = kl
-        index = np.nanargmin(pop, axis=0)
-        for i in range(10):
-            pred[j][i] = np.nansum(index == i)
-    plt.imshow(pred)
-    plt.show()
-    print(pred)
+    # pred = np.zeros((10, 10), dtype=np.int32)
+    # for j in range(10):
+    #     pop = np.zeros((10, len(adv_features[j])), dtype=np.float32)
+    #     for i in range(10):
+    #         cos_sim = cosine_similarity(features[i][:100], adv_features[j])
+    #         kl = entropy(distribution[i].reshape(-1, 1).repeat(cos_sim.shape[1], axis=1), cos_sim, axis=0)
+    #         pop[i, :] = kl
+    #     index = np.nanargmin(pop, axis=0)
+    #     for i in range(10):
+    #         pred[j][i] = np.nansum(index == i)
+    # plt.imshow(pred)
+    # plt.show()
+    # print(pred)
 
 
 

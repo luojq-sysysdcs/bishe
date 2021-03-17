@@ -13,18 +13,24 @@ from models.SimpleModel import *
 from matplotlib import pyplot as plt
 from PIL import Image
 import torchvision
+from sklearn.metrics.pairwise import cosine_similarity
+from Visualizing import FeatureExtractor
 
-
-def show(img):
+def show(img, str=None, path=None):
     npimg = img.numpy()
     plt.imshow(np.transpose(npimg, (1,2,0)), interpolation='nearest')
+    if str is not None:
+        plt.title(str)
+    if path is not None:
+        plt.savefig(path)
     plt.show()
 
 
 class MyAttack(Attack):
-    def __init__(self, model, eps, dataset,
-                 class_num=10, T=100, steps=10000, lr=1e-3, path='./log/perturbation'):
+    def __init__(self, model, eps, dataset, fx, feature_vector=None,
+                 class_num=10, T=100, steps=2000, lr=1e-1, path='./log/perturbation', device='cpu'):
         super(MyAttack,self).__init__('MyAttack', model)
+        self.device = device
         self.eps = eps
         self.model = model.eval()
         self.dataset = dataset
@@ -34,70 +40,71 @@ class MyAttack(Attack):
         self.lr = lr
         self.perturbation = None
         self.path = path
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
-
-        self.perturbation = self.load_perturbation()
-        if self.perturbation is None:
-            self.perturbation = self._make_perturbation()
-            self.save_perturbation()
-        self.evaluate()
+        self.feature_vector = feature_vector
+        self.fx = fx
+        # if not os.path.exists(self.path):
+        #     os.makedirs(self.path)
+        #
+        # self.perturbation = self.load_perturbation()
+        # if self.perturbation is None:
+        #     self.perturbation = self._make_perturbation()
+        #     self.save_perturbation()
+        # self.evaluate()
 
     def tanh_space(self, x):
         return (torch.tanh(x)+1) * (1/2)
 
     def inverse_tanh_space(self, x):
-        return self.atanh(x*2-1)
+        return torch.atanh(x*2-1)
 
     def atanh(self, x):
         return 0.5*torch.log((1+x)/(1-x))
 
-    def _make_perturbation(self):
+    def forward(self, images, labels, target_labels, batch_size=10, target=0):
+        batch_size = images.shape[0]
 
-        w = torch.rand_like(self.dataset[0][0]).to(self.device)
-        w = w.repeat([10] + [1 for _ in range(len(w.shape))])
-        # original = w.detach().clone()
-        # w = self.dataset[0][0].detach().clone().unsqueeze(0)
-        w = self.inverse_tanh_space(w).detach()
+        # w = torch.empty((batch_size, *self.dataset[0][0].shape), dtype=torch.float).uniform_(0.0, 1)
+        w = self.inverse_tanh_space(images).detach()
         w.requires_grad = True
 
-
-        # mseloss = nn.MSELoss()
         optimizer = optim.Adam([w], lr=self.lr)
-        # logit_target = torch.ones((1, self.class_num), dtype=torch.float).to(self.device) * -1
-        # logit_target[0, 0] = 1
 
-        celoss = nn.CrossEntropyLoss()
-        # optimizer = optim.Adam([w], lr=self.lr)
-        pop_target = torch.tensor([i for i in range(10)], dtype=torch.long).to(self.device)
+        COSloss = nn.CosineEmbeddingLoss(reduction='none')
+        MESLoss = nn.MSELoss(reduction='none')
+        Flatten = nn.Flatten()
+        # ce_loss = nn.CrossEntropyLoss()
+        y = torch.tensor([1] * w.shape[0], dtype=torch.long).to(self.device)
+        target_features = self.feature_vector[target_labels]
+        # true_features = self.feature_vector[labels]
 
         for step in range(self.steps):
-            perturb = self.tanh_space(w)
-            output = self.model(perturb) / self.T
-            # L1 = mseloss(output, logit_target) / 10000
-            # L2 = torch.sqrt(torch.max(perturb ** 2))
-            # L2 = torch.sum(torch.abs(perturb)) / 1000
-            L3 = celoss(output, pop_target)
-            # L4 = mseloss(perturb, original) / 10
-            # L2 = torch.mean(perturb)
-            loss = L3
+            adv_images = self.tanh_space(w)
+
+            output = self.fx(adv_images)[0].flatten(start_dim=1)
+            # l2_loss = MESLoss(Flatten(adv_images), Flatten(images)).sum()
+            # loss1 = MESLoss(target_features, output).sum()
+            # loss2 = MESLoss(true_features, output).sum()
+            cos_loss = COSloss(target_features, output, target=y).sum()
+            # cos_loss2 = COSloss(true_features, output, target=-y).sum()
+
+            loss = cos_loss
+
+            print(cos_loss.item() / batch_size, cos_loss.item() / batch_size)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            if (step + 1) % (self.steps // 10) == 0:
-                print(output)
-                print(L3.item())
+            if (step + 1) % (self.steps // 2) == 0:
+                print(loss.item())
+                adv_images = self.tanh_space(w).detach().cpu()
+                img = torch.cat([images, adv_images], dim=1).reshape((images.shape[0] * 2, -1, *images.shape[2:]))
+                img = torchvision.utils.make_grid(img, nrow=6, padding=2, pad_value=1)
+                show(img, 'model:vgg')
 
-                perturb = self.tanh_space(w).detach().cpu()
-                img = torchvision.utils.make_grid(perturb, nrow=5, padding=2, pad_value=1)
-                show(img)
-        # plt.imshow(perturb.cpu().detach().clone().squeeze().numpy(), cmap='binary')
-        # plt.show()
-        perturb = self.tanh_space(w).detach().cpu()
-        print(perturb.shape)
-        return perturb
+        adv_images = self.tanh_space(w).detach().cpu()
+        print(adv_images.shape)
+        return adv_images
 
     def save_perturbation(self):
         for idx, img in enumerate(self.perturbation):
@@ -129,52 +136,118 @@ class MyAttack(Attack):
         print(output)
         print(pre)
 
-    def __call__(self, *args, **kwargs):
-        pass
+    def __call__(self, batch_size, target_labels):
+
+        w = torch.empty((batch_size, *self.dataset[0][0].shape), dtype=torch.float).uniform_(0.0, 1)
+        w.requires_grad = True
+
+        optimizer = optim.Adam([w], lr=self.lr)
+
+        COSloss = nn.CosineEmbeddingLoss(reduction='none')
+        CEloss = nn.CrossEntropyLoss(reduction='none')
+        y = torch.tensor([1] * batch_size, dtype=torch.long).to(self.device)
+        target_features = self.feature_vector[target_labels]
+
+        for step in range(self.steps):
+            adv_images = self.tanh_space(w)
+
+            features = self.fx(adv_images)[0].flatten(start_dim=1)
+            outputs = self.fx.x
+            cos_loss = COSloss(target_features, features, target=y).sum()
+            ce_loss = CEloss(outputs, target_labels).sum()
+
+            loss = cos_loss * 0 + ce_loss
+            if (step + 1) % (self.steps // 50) == 0:
+                print(cos_loss, ce_loss)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            if (step + 1) % (self.steps // 2) == 0:
+                print(loss.item())
+                adv_images = self.tanh_space(w).detach().cpu()
+                img = torchvision.utils.make_grid(adv_images, nrow=6, padding=2, pad_value=1)
+                show(img, 'model:vgg, loss:ce loss', path='log/mnist/reconstruction/' + str(target_labels[0]) + '.jpg')
+
+        adv_images = self.tanh_space(w).detach().cpu()
+        print(adv_images.shape)
+        return adv_images
 
 
 if __name__ == '__main__':
+
+    torch.random.manual_seed(0)
+
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     root = 'E:/ljq/data'
-    batch_size = 4
-    train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
-
-    # root = './log/cw/model3-1e1-0'
-    # batch_size = 128
-    # adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=False)
+    dataclass = MNIST(root, transform=False)
+    batch_size = 6
+    train_dataset, train_dataloader = \
+        dataclass.get_dataloader(train=True, batch_size=batch_size, shuffle=False, num_worker=0)
+    test_dataset, test_dataloader = \
+        dataclass.get_dataloader(train=False, batch_size=batch_size, shuffle=False, num_worker=0)
 
     model = resnet_mnist()
-    log_path = './log/mnist/model'
-    load_model(model, log_path, 'resnet')
-    model = model.eval()
-    model = model.to(device)
+    log_path = os.path.join('./log', dataclass.name, 'model')
+    load_model(model, log_path, model.name.split('-')[0])
+    # model = add_normal_layer(model, (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+    model = model.eval().to(device)
     print(model)
 
-    # choice = 0
-    # for idx, (img, label) in enumerate(train_dataset):
-    #     if idx > 150:
-    #         break
-    #     if label != 5:
-    #         continue
-    #     ad_img, _, _ = adversarial_dataset.get_sample(idx, choice)
-    #     if ad_img is None:
-    #         continue
-    #     diff = img - ad_img
-    #     diff = (diff - torch.min(diff)) / (torch.max(diff) - torch.min(diff))
-    #     plt.imshow(diff.detach().squeeze().clone().numpy(), cmap='binary')
-    #     plt.show()
-    #     print(model(diff.unsqueeze(0)))
+    # evaluate(model, test_dataloader)
 
-    adversary = MyAttack(model, eps=0.4, dataset=train_dataset)
-    # count = 0
-    # for idx, (img, label) in enumerate(train_dataset):
-    #     if count == 10:
-    #         break
-    #     if label != -1:
-    #         count += 1
-    #         adversary(train_dataset[idx][0], 5, rate=0.8)
+    target_module = ['avgpool']
+    fx = FeatureExtractor(model, target_module)
+
+    # 计算训练样本的feature
+    labels = torch.zeros((10, ), dtype=torch.int)
+    features = [[] for i in range(10)]
+
+    for idx, (imgs, ls) in enumerate(train_dataloader):
+        imgs = imgs.to(device)
+        ls = ls.to(device)
+
+        if torch.all(torch.ge(labels, 10)):
+            break
+
+        if len(imgs) == 0:
+            continue
+
+        _, pred = torch.max(model(imgs), dim=1)
+        imgs = imgs[ls == pred]
+        ls = ls[ls == pred]
+
+        ft = fx(imgs)[0].flatten(start_dim=1)
+        for i in range(10):
+            features[i].append(ft[ls == i])
+            labels[i] += torch.sum((ls == i).int())
+
+    for i in range(10):
+        features[i] = torch.mean(torch.cat(features[i], dim=0), dim=0)
+        print(features[i].shape)
+    features = torch.stack(features, dim=0).detach().requires_grad_(False)
+
+    myattack = MyAttack(model, eps=0.3, dataset=train_dataset, fx=fx, feature_vector=features)
+
+    # for idx, (imgs, labels) in enumerate(train_dataloader):
+    #     # imgs = imgs[-2:-1]
+    #     # labels = labels[-2:-1]
+    #     print(labels)
+    #     target_labels = torch.tensor([0] * imgs.shape[0], dtype=torch.long).to(device)
+    #     print(model(imgs))
+    #     adv_imgs = myattack.forward(imgs, labels, target_labels)
+    #     print(model(adv_imgs))
+    #     plt.hist((adv_imgs - imgs).abs().flatten().detach().clone().numpy(), log=True)
+    #     plt.show()
+    #     break
+    batch_size = 2
+    for i in range(10):
+        target_labels = torch.tensor([i] * batch_size, dtype=torch.long).to(device)
+        myattack(batch_size=batch_size, target_labels=target_labels)
+
 
 
 

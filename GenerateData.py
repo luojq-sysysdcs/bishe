@@ -174,7 +174,7 @@ class CIFAR():
             dataset = datasets.CIFAR10(self.root, train=train, transform=self.test_transform, download=False)
         return dataset
 
-    def get_dataloader(self, train=True, batch_size=64, shuffle=False, num_worker=4, adversarial=False,
+    def get_dataloader(self, train=True, batch_size=64, shuffle=False, num_worker=0, adversarial=False,
                        pin_memory=False):
         dataset = self.get_dataset(train, adversarial=adversarial)
         print('loading...')

@@ -17,12 +17,13 @@ os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 
 class FeatureExtractor():
-    def __init__(self, device='cpu'):
+    def __init__(self, model, target_layers):
         self.target_activations = []
         self.x = None
         self.target_layers = None
         self.index = 0
-        self.device = device
+        self.model = model
+        self.target_layers = target_layers
 
     def extractor(self, model):
         for name, child in model.named_children():
@@ -30,7 +31,7 @@ class FeatureExtractor():
                 self.index += 1
                 if self.index == len(self.target_layers):
                     self.x = child(self.x)
-                    self.target_activations.append(self.x.detach().clone().cpu())
+                    self.target_activations.append(self.x)
                 else:
                     self.extractor(child)
             else:
@@ -38,12 +39,10 @@ class FeatureExtractor():
             if "avgpool" in name.lower() or 'maxpool' in name.lower():
                 self.x = self.x.view(self.x.size(0), -1)
 
-    def __call__(self, model, x, target_layers):
+    def __call__(self, x):
         self.index = 0
         self.target_activations = []
-        self.model = model.to(self.device)
-        self.x = x.detach().clone().to(self.device)
-        self.target_layers = target_layers
+        self.x = x
         self.extractor(self.model)
         return self.target_activations
 
@@ -61,77 +60,10 @@ def readNumpyFile(root, size=(28, 28)):
         return files, sorted(indexs)
 
 if __name__ == '__main__':
-    root = 'E:/ljq/data'
-    batch_size = 1
-    train_dataset, train_dataloader = generate_data(root, 'MNIST', train=True, batch_size=batch_size, shuffle=False)
+    model = vgg_mnist()
 
-    root = './log/PGD-model3-0.3'
-    adversarial_dataset, adversarial_dataloader = get_adversarial_data(root, batch_size=batch_size, shuffle=False)
 
-    model = Model3()
-    model = model.eval()
-    log_path = './log'
-    load_model(model, log_path, 'model3')
-    print(model)
 
-    fx = FeatureExtractor()
-    target_module = ['extract']
-
-    gradcam = GradCam(model, target_module)
-
-    # grad cam results for original input
-    # root = os.path.join(os.getcwd(), 'log', 'gradcam_results', 'mnist', 'activation_layer' + activation_layer)
-    # if not os.path.exists(root):
-    #     os.makedirs(root)
-    for idx, (image, label) in enumerate(train_dataloader):
-        if idx == 20:
-            break
-        if torch.max(model(image), dim=1)[1].item() != label:
-            continue
-        activation_map = gradcam(image)
-        plt.imshow(image.squeeze().numpy(), cmap='binary', interpolation='none')
-        if not os.path.exists(os.path.join(root, str(idx))):
-            os.makedirs(os.path.join(root, str(idx)))
-        plt.savefig(os.path.join(root, str(idx), 'original.jpg'))
-        plt.imshow(activation_map, cmap='binary')
-        plt.savefig(os.path.join(root, str(idx), 'gradcam.jpg'))
-        plt.show()
-        # np.save(os.path.join(root, str(idx), 'gradcam.npy'), activation_map)
-
-    for idx, (image, label) in enumerate(adversarial_dataloader):
-        if idx == 20:
-            break
-        if torch.max(model(image), dim=1)[1].item() != label:
-            continue
-        activation_map = gradcam(image)
-        plt.imshow(image.squeeze().numpy(), cmap='binary', interpolation='none')
-        if not os.path.exists(os.path.join(root, str(idx))):
-            os.makedirs(os.path.join(root, str(idx)))
-        plt.savefig(os.path.join(root, str(idx), 'original.jpg'))
-        plt.imshow(activation_map, cmap='binary')
-        plt.savefig(os.path.join(root, str(idx), 'gradcam.jpg'))
-        plt.show()
-
-    # grad cam results for cw attack
-    # root = os.path.join(os.getcwd(), 'log', 'cw_image', 'gradcam', 'mnist', 'activation_layer' + activation_layer)
-    # if not os.path.exists(root):
-    #     os.makedirs(root)
-    # for idx, image in enumerate(fake_images):
-    #     image = image.unsqueeze(0).unsqueeze(0)
-    #     activation_map_for_fake_images = gradcam(image)
-    #     plt.imshow(activation_map_for_fake_images, cmap='binary')
-    #     plt.savefig(os.path.join(root, str(idx) + '.jpg'))
-
-    # grad cam results for one pixel
-    # root = os.path.join(os.getcwd(), 'log', 'one pixel', 'gradcam', 'mnist', 'activation_layer' + activation_layer)
-    # if not os.path.exists(root):
-    #     os.makedirs(root)
-    # for idx, image in zip(indexs, fake_images):
-    #     image = image.unsqueeze(0).unsqueeze(0)
-    #     activation_map_for_fake_images = gradcam(image, target_category=9)
-    #     plt.imshow(activation_map_for_fake_images, cmap='binary')
-    #     plt.savefig(os.path.join(root, str(idx) + '.jpg'))
-    #     plt.show()
 
 
 

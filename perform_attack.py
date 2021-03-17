@@ -27,11 +27,11 @@ if __name__ == '__main__':
 
     root = 'E:/ljq/data'
     dataclass = CIFAR(root, transform=False)
-    batch_size = 50
+    batch_size = 6
     train_dataset, train_dataloader = \
-        dataclass.get_dataloader(train=True, batch_size=batch_size, shuffle=False, num_worker=4)
+        dataclass.get_dataloader(train=True, batch_size=batch_size, shuffle=False, num_worker=0)
     test_dataset, test_dataloader = \
-        dataclass.get_dataloader(train=False, batch_size=batch_size, shuffle=False, num_worker=4)
+        dataclass.get_dataloader(train=False, batch_size=batch_size, shuffle=False, num_worker=0)
 
     model = vgg_cifar()
     log_path = os.path.join('./log', dataclass.name, 'model')
@@ -40,104 +40,108 @@ if __name__ == '__main__':
     model = model.eval().to(device)
     print(model)
     
-    # # for i in range(10):
-    # #     acc = cal_acc(model, test_dataloader, device, label=i)
-    # #     print('accuracy: %f' % acc)
-    # # exit(0)
+    # for i in range(10):
+    #     acc = cal_acc(model, test_dataloader, device, label=i)
+    #     print('accuracy: %f' % acc)
+    # exit(0)
+
+    # adversary = FGSM(model, eps=0.03, random_start=False)
+    adversary = PGD(model, eps=0.031, alpha=2 / 255, steps=10, random_start=False)
+    # adversary = MFGSM(model, eps=0.031, c=10)
+    # adversary = CW(model, c=1e1, kappa=0, steps=50, lr=1e-1, use_cuda=torch.cuda.is_available())
+    num_classes = 10
+    # adversary = DeepFool(model, num_classes=num_classes, steps=50)
+
+    root = os.path.join('./log', dataclass.name, 'pgd', 'vgg-0.03')
+    # if os.path.exists(root):
+    #     shutil.rmtree(root)
+    # if not os.path.exists(root):
+    #     os.makedirs(root)
+
+    count = 0
+    index = 0
+    target_attack = True
+    true_labels = []
+    for idx, (images, labels) in enumerate(train_dataloader):
+        if idx * batch_size >= 1000:
+            break
+        # if idx * batch_size >= 9000:
+        #     break
+        true_labels += list(labels)
+        if target_attack:
+            adv_labels = [[i for i in range(num_classes)] for _ in range(batch_size)]
+            for i, label in enumerate(labels):
+                del adv_labels[i][label]
+        else:
+            adv_labels = labels.unsqueeze(1).numpy()
+        adv_labels = torch.tensor(adv_labels, dtype=torch.long)
+        print(list(labels), list(adv_labels))
+
+        for i in range(batch_size):
+            p = os.path.join(root, str(index + i))
+            if not os.path.exists(p):
+                os.makedirs(p)
+
+        for i in range(adv_labels.shape[1]):
+            t0 = time.time()
+            adv_images, success = adversary.forward(images, adv_labels[:, i])
+            adv_images = adv_images.cpu()
+            print(success)
+
+            for j in range(batch_size):
+                if success[j]:
+                    count += 1
+                    p = os.path.join(root, str(index + j), str(adv_labels[:, i][j].item()) + '.jpg')
+                    # dataclass.save(adv_images[j], p)
+            if idx < 5:
+                img = torch.cat([images, adv_images], dim=1)
+                img = img.reshape((batch_size * 2, -1, *img.shape[-2:]))
+                img = torchvision.utils.make_grid(img, nrow=6, padding=2, pad_value=1)
+                show(img)  #, os.path.join(root, str(idx) + '-' + str(i))
+            t1 = time.time()
+            print('time used: %f' % (t1 - t0))
+
+            break
+
+        index += len(labels)
+
+        if idx % 1 == 0:
+            if target_attack:
+                print('success rate : %d / %d ( %f ) ' % (count, ((num_classes - 1) * (idx + 1) * batch_size),
+                                                          count / ((num_classes - 1) * (idx + 1) * batch_size)))
+            else:
+                print('success rate : %d / %d ( %f ) ' % (count, ( (idx + 1) * batch_size),
+                                                          count / ((idx + 1) * batch_size)))
+        break
+    # np.savetxt(os.path.join(root, 'labels.txt'), true_labels, fmt="%d")
+
+    # 生成随机攻击样本
+    # torch.random.manual_seed(0)
+    # adversary = PGD(model, eps=0.3, alpha=5 / 255, steps=20, random_start=False)
     #
-    # # adversary = FGSM(model, eps=0.3, random_start=False)
-    # adversary = PGD(model, eps=0.031, alpha=2 / 255, steps=10, random_start=False)
-    # # adversary = MFGSM(model, eps=0.031, c=10)
-    # # adversary = CW(model, c=1e1, kappa=0, steps=50, lr=1e-1, use_cuda=torch.cuda.is_available())
-    # num_classes = 10
-    # # adversary = DeepFool(model, num_classes=num_classes, steps=50)
-    #
-    # root = os.path.join('./log', dataclass.name, 'pgd', 'vgg-0.03')
+    # root = os.path.join('./log', 'random', 'pgd', 'vgg-0.03')
     # if os.path.exists(root):
     #     shutil.rmtree(root)
     # if not os.path.exists(root):
     #     os.makedirs(root)
     #
-    # count = 0
-    # index = 0
-    # target_attack = True
-    # true_labels = []
-    # for idx, (images, labels) in enumerate(train_dataloader):
-    #     if idx * batch_size >= 1000:
-    #         break
-    #     # if idx * batch_size >= 9000:
-    #     #     break
-    #     true_labels += list(labels)
-    #     if target_attack:
-    #         adv_labels = [[i for i in range(num_classes)] for _ in range(batch_size)]
-    #         for i, label in enumerate(labels):
-    #             del adv_labels[i][label]
-    #     else:
-    #         adv_labels = labels.unsqueeze(1).numpy()
-    #     adv_labels = torch.tensor(adv_labels, dtype=torch.long)
-    #     print(list(labels), list(adv_labels))
+    # batch_size = 50
+    # fake_labels = torch.arange(0, 10, step=1, dtype=torch.long).unsqueeze(1).repeat((1, batch_size))
     #
-    #     for i in range(batch_size):
-    #         p = os.path.join(root, str(index + i))
-    #         if not os.path.exists(p):
-    #             os.makedirs(p)
-    #
-    #     for i in range(adv_labels.shape[1]):
-    #         t0 = time.time()
-    #         adv_images, success = adversary.forward(images, adv_labels[:, i])
-    #         adv_images = adv_images.cpu()
+    # for i in range(100):
+    #     random_data = torch.empty((batch_size, 3, 32, 32), dtype=torch.float).random_(0, 2)
+    #     for j in range(10):
+    #         adv_data, success = adversary.forward(random_data, fake_labels[j])
     #         print(success)
-    #
-    #         for j in range(batch_size):
-    #             if success[j]:
-    #                 count += 1
-    #                 p = os.path.join(root, str(index + j), str(adv_labels[:, i][j].item()) + '.jpg')
-    #                 dataclass.save(adv_images[j], p)
-    #         if idx < 5:
-    #             img = torch.cat([images, adv_images], dim=1)
+    #         for k in range(batch_size):
+    #             if success[k]:
+    #                 p = os.path.join(root, str(i * batch_size + k) + '-' + str(j) + '.jpg')
+    #                 save_image(adv_data[k], p)
+    #         if i == 0:
+    #             img = torch.cat([random_data, adv_data], dim=1)
     #             img = img.reshape((batch_size * 2, -1, *img.shape[-2:]))
     #             img = torchvision.utils.make_grid(img, nrow=10, padding=2, pad_value=1)
-    #             show(img, os.path.join(root, str(idx) + '-' + str(i)))  #
-    #         t1 = time.time()
-    #         print('time used: %f' % (t1 - t0))
-    #     index += len(labels)
-    #
-    #     if idx % 1 == 0:
-    #         if target_attack:
-    #             print('success rate : %d / %d ( %f ) ' % (count, ((num_classes - 1) * (idx + 1) * batch_size),
-    #                                                       count / ((num_classes - 1) * (idx + 1) * batch_size)))
-    #         else:
-    #             print('success rate : %d / %d ( %f ) ' % (count, ( (idx + 1) * batch_size),
-    #                                                       count / ((idx + 1) * batch_size)))
-    # np.savetxt(os.path.join(root, 'labels.txt'), true_labels, fmt="%d")
-
-    # 生成随机攻击样本
-    torch.random.manual_seed(0)
-    adversary = PGD(model, eps=0.3, alpha=5 / 255, steps=20, random_start=False)
-
-    root = os.path.join('./log', 'random', 'pgd', 'vgg-0.03')
-    if os.path.exists(root):
-        shutil.rmtree(root)
-    if not os.path.exists(root):
-        os.makedirs(root)
-
-    batch_size = 50
-    fake_labels = torch.arange(0, 10, step=1, dtype=torch.long).unsqueeze(1).repeat((1, batch_size))
-
-    for i in range(100):
-        random_data = torch.empty((batch_size, 3, 32, 32), dtype=torch.float).random_(0, 2)
-        for j in range(10):
-            adv_data, success = adversary.forward(random_data, fake_labels[j])
-            print(success)
-            for k in range(batch_size):
-                if success[k]:
-                    p = os.path.join(root, str(i * batch_size + k) + '-' + str(j) + '.jpg')
-                    save_image(adv_data[k], p)
-            if i == 0:
-                img = torch.cat([random_data, adv_data], dim=1)
-                img = img.reshape((batch_size * 2, -1, *img.shape[-2:]))
-                img = torchvision.utils.make_grid(img, nrow=10, padding=2, pad_value=1)
-                show(img)  #, os.path.join(root, str(idx) + '-' + str(i))
+    #             show(img)  #, os.path.join(root, str(idx) + '-' + str(i))
 
 
 # -----------------------------

@@ -40,7 +40,6 @@ class PGD(Attack):
         self.alpha = alpha
         self.steps = steps
         self.random_start = random_start
-        self._target = 1
 
     def forward(self, images, labels):
         r"""

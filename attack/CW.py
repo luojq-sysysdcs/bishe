@@ -16,7 +16,6 @@ class CW(Attack):
         self.binary_search_steps = binary_search_steps
         self.repeat = self.binary_search_steps > 10
         self.use_cuda = use_cuda
-        print(self.device)
 
     def forward(self, images, labels):
         if self.use_cuda:
@@ -80,7 +79,7 @@ class CW(Attack):
                     break
                 else:
                     prev_cost = loss.item()
-        print(success)
+
         return best_adv_images, success
 
     def f(self, outputs, labels):
